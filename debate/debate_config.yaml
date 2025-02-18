@@ -1,0 +1,17 @@
+model: "llama3.2:3b"
+
+debate_group: "neutral_republican"  # options: "neutral_republican", "neutral_democrat", "neutral_republican_democrat"
+debate_structure: "structured"  # options: "structured" (via ontology), "unstructured"
+
+baseline_debate_topics:
+  - "gun violence"
+  - "racism"
+  - "climate change"
+  - "illegal immigration"
+
+extra_debate_topics:
+  - "abortion"
+  - "evolution"
+  - "trade tariffs"
+
+rounds: 5
