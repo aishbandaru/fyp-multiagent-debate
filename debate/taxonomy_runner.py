@@ -105,13 +105,14 @@ if __name__ == "__main__":
     model1 = "llama3.2:3b"
     model2 = "mistral:7b"
     debate_topic = "climate change"
+    debate_motion = "The US should take stronger measures to combat climate change."
 
     # TODO: current prompt is geared for political debates
     taxonomy_prompt = f"""
-    You are participating in a structured, political debate on the topic: "{debate_topic}". Your goal is to construct a taxonomy for the political debate using a tree structure where:
+    You are participating in a structured, political debate on the topic "{debate_topic}" for the debate motion: "{debate_motion}". Your goal is to construct a taxonomy for the political debate using a tree structure where:
     1. The root node represents the overarching debate topic.
-    2. The first level consists of major perspectives for the debate topic.
-    3. The second level breaks down each perspective into subcategories supporting and opposing the perspective.
+    2. The first level consists of major discussion points for the debate motion.
+    3. The second level breaks down each major discussion point into subcategories.
     4. Additional levels refine arguments further if needed.
     Output the taxonomy as a dictionary like in the example.
     Provide an explanation of your categorisation in less than 50 words.
@@ -120,17 +121,17 @@ if __name__ == "__main__":
     \nUse the format in the example below:
     Taxonomy = {
         "Debate Topic": {
-            "Perspective 1": {
-                "Argument A": {
-                    "Supporting Point 1": {},
-                    "Supporting Point 2": {}
+            "Discussion Point 1": {
+                "Subcategory A": {
+                    "Subsubcategory 1": {},
+                    "Subsubcategory 2": {}
                 },
-                "Argument B": {}
+                "Subcategory B": {}
             },
-            "Perspective 2": {
-                "Argument C": {
-                    "Counterargument X": {},
-                    "Counterargument Y": {}
+            "Discussion Point 2": {
+                "Subcategory C": {
+                    "Subsubcategory X": {},
+                    "Subsubcategory Y": {}
                 }
             }
         }
@@ -146,7 +147,7 @@ if __name__ == "__main__":
     agents = [agent1, agent2]
 
     # generate taxonomy
-    taxonomy_gen = TaxonomyGenerator(agents=agents, topic=debate_topic, rounds=3)
+    taxonomy_gen = TaxonomyGenerator(agents=agents, topic=debate_topic, rounds=1)
     taxonomy = taxonomy_gen.start(num_debates=1)
 
 

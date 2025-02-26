@@ -2,6 +2,7 @@ import sys
 import os
 import yaml
 import json
+from datetime import datetime
 
 # Add the project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -23,7 +24,17 @@ class DebateManager:
     
     def start(self, num_debates):
         # for _ in range(num_debates):  # TODO: save debate data (transcript) + final taxonomy; clear data before every run 
-        self._start_debate()
+        self._start_taxonomic_debate()
+
+        self._save_debate_transcription()
+
+
+        # clear data
+        # self._start_simple_debate()
+
+        # save debates for evaluation!
+        
+        # evaluate debates (come up with metrics on repetition, coherence etc.)
 
 
     def _print_response(self, agent_name, response):
@@ -42,7 +53,20 @@ class DebateManager:
         return response
 
 
-    def _start_debate(self):
+    def _start_simple_debate(self):
+        
+        for agent in self.agents:
+            # self.debate_round(agent, "Present your opening opinions on the topic. Do not rebut the other agent. Do not disagree with them.")
+            self.debate_round(agent, "Present your opening stance towards the debate motion. Keep your reply shorter than 50 words.")
+
+        for _ in range(1, self.rounds - 1): 
+            for agent in self.agents:
+                # self.debate_round("Please rebut the other agent's opinions and continue to argue your own.", agent)
+                self.debate_round(agent, "Complete your next reply. Keep your reply shorter than 50 words.")  # NOTE: This takes the prompt used in baseline paper
+
+
+
+    def _start_taxonomic_debate(self):
 
         topic_name, perspectives = next(iter(self.taxonomy.items()))
         
@@ -51,21 +75,22 @@ class DebateManager:
 
             print(f"📌 **Arguments:** {arguments}\n")
 
+            # (TODO: give the agents all the arguments they will debate on at the beginning?)
+
             for argument, counterarguments in arguments.items():
                 print(f"\n--- Debating Argument: '{argument}' ---")
 
                 for agent in self.agents:
-                    self._debate_round(agent, f"Present your opening stance towards the argument: '{argument}'. Keep your reply shorter than 70 words.")
+                    self._debate_round(agent, f"Present your opening stance towards the argument: '{argument}'. Keep your reply shorter than 50 words.")
 
                 for _ in range(self.rounds - 1): 
                     for agent in self.agents:
-                        self._debate_round(agent, "Complete your next reply based on the debate so far. Keep your reply shorter than 70 words.")
+                        self._debate_round(agent, "Complete your next reply based on the debate so far. Keep your reply shorter than 50 words.")
 
-            
                 # print(f"{self.agents[0].name} presents opening stance on: '{argument}'")
                 # debate_phase_prompt = f"Present your opening stance towards the argument: '{argument}'. Keep your reply shorter than 50 words."
                 # self._debate_round(self.agents[0], debate_phase_prompt)
-                
+
                 # # Agent 2 counters Agent 1's argument
                 # print(f"{self.agents[1].name} counters: '{argument}'")
                 # debate_phase_prompt = f"Present your counterargument to: '{argument}'. Keep your reply shorter than 50 words."
@@ -78,14 +103,47 @@ class DebateManager:
         # print(self.ordered_conversation_history)
             
 
-    def present_argument(self, perspective, arguments):
-        """ Picks an argument from the given perspective. """
-        if not arguments:
-            return None
-        argument = next(iter(arguments.keys()))  # Get first argument
-        print(f"{self.name} argues: '{argument}'")
-        return argument
+    def get_relative_path(self, filename, folder="debate"):
+        # to enable running from root folder or debate subfolder
+        if os.path.basename(os.getcwd()) == folder:
+            return filename
+        return os.path.join(folder, filename)
 
+
+    def _save_debate_transcription(self):
+        timestamp = datetime.now().strftime("%d%m%Y_%H%M%S")
+
+        save_folder = self.get_relative_path(f"data/debate_transcripts/{self.debate_group}/{self.debate_structure}/{self.topic.replace(' ', '_')}")
+        os.makedirs(save_folder, exist_ok=True)
+
+        # TXT
+        text_filename = f'{save_folder}/transcript_{timestamp}.txt'
+        with open(text_filename, 'w') as f:
+            for round in self.conversation_for_transcription:
+                f.write(f'{round["agent"].label} > {round["response"]} \n\n')
+
+        # JSON
+        json_filename = f'{save_folder}/transcript_{timestamp}.json'
+        json_data = {
+            "topic": self.topic,
+            "timestamp": timestamp,
+            "agents": [ {
+                "agent_id": index,
+                "name": agent.name,
+                "stance": agent.stance, 
+            } for index, agent in enumerate(self.agents)],
+            "rounds": [
+                    {
+                        "agent_id": self.agents.index(round["agent"]),
+                        "response": round["response"]}
+                for round in self.conversation_for_transcription
+            ]
+        }
+
+        with open(json_filename, 'w', encoding='utf-8') as f:
+            json.dump(json_data, f)
+
+        print(f"Transcripts saved:\n- {text_filename}\n- {json_filename}")
 
 
     
