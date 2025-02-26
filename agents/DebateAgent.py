@@ -11,11 +11,11 @@ class DebateAgent:
 
     def respond(self, debate_phase_prompt, conversation):
         if self.stance == "proponent":
-            stance_prompt = "You are a Democrat."
+            stance_prompt = f"You are {self.name}, supporting the debate motion."
         elif self.stance == "opponent":
-            stance_prompt = "You are a Republican."
+            stance_prompt = f"You are {self.name}, opposing the debate motion."
         else:
-            stance_prompt = ""
+            stance_prompt = f"You are {self.name}."
 
         response = ollama.chat(
             model=self.model,
