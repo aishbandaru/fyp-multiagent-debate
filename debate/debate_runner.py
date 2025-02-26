@@ -113,7 +113,7 @@ class DebateManager:
     def _save_debate_transcription(self):
         timestamp = datetime.now().strftime("%d%m%Y_%H%M%S")
 
-        save_folder = self.get_relative_path(f"data/debate_transcripts/{self.debate_group}/{self.debate_structure}/{self.topic.replace(' ', '_')}")
+        save_folder = self.get_relative_path(f"data/debate_transcripts/{self.topic.replace(' ', '_')}")
         os.makedirs(save_folder, exist_ok=True)
 
         # TXT
