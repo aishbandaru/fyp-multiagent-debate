@@ -1,17 +1,53 @@
-model: "llama3.2:3b"
-
 debate_group: "neutral_republican"  # options: "neutral_republican", "neutral_democrat", "neutral_republican_democrat"
-debate_structure: "structured"  # options: "structured" (via ontology), "unstructured"
+debate_structure: "structured"  # options: "structured" (via taxonomy), "unstructured"
+
+
+### for taxonomy ###
+taxonomy_rounds: 1
+taxonomy_iterations: 1
+taxonomy_tree_depth: null  # options: 1, 2, 3, null = "unspecified"
+
+
+### for debate ###
+debate_rounds: 1
+debate_iterations: 1
 
 baseline_debate_topics:
-  - "gun violence"
-  - "racism"
-  - "climate change"
   - "illegal immigration"
+  - "gun violence"
+  - "abortion"
+  - "climate change"
+
+baseline_debate_questions:
+- "Do Immigrants Take Jobs From American-Born Workers?"
+- "Should there be stricter gun ownership laws?"
+- "Should partial birth abortions be banned to protect unborn children?"
+- "Should the city go ahead with building the manufacturing plant?"
 
 extra_debate_topics:
-  - "abortion"
+  - "racism"
   - "evolution"
   - "trade tariffs"
 
-rounds: 5
+
+### for agents ###
+token_limit: 75
+temperature: 0.35
+debate_agents:
+  - identifier: "neutral"
+    name: "Sam"
+    model: "llama3.2:3b"
+    party: null
+    leaning: null
+
+  - identifier: "republican"
+    name: "Alex"
+    model: "llama3.2:3b"
+    party: "Republican"
+    leaning: "right-leaning"
+
+  - identifier: "democrat"
+    name: "Taylor"
+    model: "llama3.2:3b"
+    party: "Democrat"
+    leaning: "left-leaning"

@@ -6,24 +6,64 @@ import ast
 import json
 from datetime import datetime
 
-# Add the project root to the Python path
+# add the project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agents.DebateAgent import DebateAgent
 
 
 class TaxonomyGenerator:
-    def __init__(self, agents, topic, rounds):
-        self.topic = topic
+    def __init__(self, agents, debate_topic, debate_question, taxonomy_rounds, taxonomy_iterations):
+        self.debate_topic = debate_topic
+        self.debate_question = debate_question
+        self.taxonomy_prompt = self._get_taxonomy_prompt()
+        # print("TAXONOMY PROMPT: ", self.taxonomy_prompt, "\n")
         self.agents = agents
-        self.rounds = rounds
+        self.taxonomy_rounds = taxonomy_rounds
+        self.taxonomy_iterations = taxonomy_iterations
 
         self.ordered_conversation_history = []  # [{"agent: response"}, ...]
         self.conversation_for_taxonomy = []  # [{"agent": agent, "response": response}, ...]
 
 
-    def start(self, num_debates):
-        # for _ in range(num_debates):  # TODO: save debate data (transcript) + final taxonomy; clear data before every run 
+    def _get_taxonomy_prompt(self):
+        # You are participating in a structured, political debate on the topic "{debate_topic}" for the debate motion: "{debate_motion}".
+        taxonomy_prompt = f"""
+        You are participating in a structured, political debate on the question: "{self.debate_question}". Your goal is to construct a taxonomy for the political debate using a tree structure where:
+        1. The root node represents the overarching debate topic.
+        2. The first level consists of major discussion points for the debate motion.
+        3. The second level breaks down each major discussion point into subcategories.
+        4. Additional levels refine arguments further if needed.
+        Output the taxonomy as a dictionary like in the example.
+        Provide an explanation of your categorisation in less than 50 words.
+        """ \
+        """
+        \nUse the format in the example below:
+        Taxonomy = {
+            "Debate Topic": {
+                "Discussion Point 1": {
+                    "Subcategory A": {
+                        "Subsubcategory 1": {},
+                        "Subsubcategory 2": {}
+                    },
+                    "Subcategory B": {}
+                },
+                "Discussion Point 2": {
+                    "Subcategory C": {
+                        "Subsubcategory X": {},
+                        "Subsubcategory Y": {}
+                    }
+                }
+            }
+        }
+
+        Explanation: The taxonomy organizes the debate into two primary perspectives: Discussion Point 1 and Discussion Point 2. Each perspective contains key arguments, which are further divided into supporting points or counterarguments. This hierarchical structure helps in understanding the debate by breaking down complex arguments into smaller, manageable parts.
+        """
+        return taxonomy_prompt
+
+
+    def start(self):
+        # for _ in range(self.taxonomy_iterations):  # TODO: save debate data (transcript) + final taxonomy; clear data before every run 
         self._start_taxonomy_debate()
 
         for entry in reversed(self.conversation_for_taxonomy):
@@ -58,21 +98,17 @@ class TaxonomyGenerator:
 
 
     def _start_taxonomy_debate(self):
-        
         for agent in self.agents:
-            self._debate_round(agent, "Present your opening taxonomy for this topic.")
-        
-        for _ in range(self.rounds - 1): 
-            for agent in self.agents:
-                self._debate_round(agent, "Update the taxonomy based on the debate so far.")
+            self._debate_round(agent, "Present your opening taxonomy.")
 
-        # for agent in self.agents:
-        #     self._debate_round(agent, "Present your closing taxonomy for this topic, coming to a consensus with the other agent(s).")
+        for _ in range(self.taxonomy_rounds - 1): 
+            for agent in self.agents:
+                self._debate_round(agent, "Update the taxonomy.")  # Complete your next reply based on the taxonomy so far
 
 
     def _debate_round(self, agent, debate_phase_prompt=None):
         conversation = "\n".join(self.ordered_conversation_history)
-        response = agent.respond(debate_phase_prompt, conversation)
+        response = agent.respond(debate_phase_prompt, conversation, self.taxonomy_prompt)
 
         self._print_response(agent.name, response)
 
@@ -85,7 +121,7 @@ class TaxonomyGenerator:
 
 
     def save_taxonomy(self, taxonomy):
-        topic = self.topic.replace(" ", "_").lower()
+        topic = self.debate_topic.replace(" ", "_").lower()
         save_folder = f"data/taxonomy/{topic}"
         os.makedirs(save_folder, exist_ok=True)
 
@@ -102,57 +138,42 @@ class TaxonomyGenerator:
 
 
 if __name__ == "__main__":
-    model1 = "llama3.2:3b"
-    model2 = "mistral:7b"
-    debate_topic = "climate change"
-    debate_motion = "The US should take stronger measures to combat climate change."
 
-    # TODO: current prompt is geared for political debates
-    taxonomy_prompt = f"""
-    You are participating in a structured, political debate on the topic "{debate_topic}" for the debate motion: "{debate_motion}". Your goal is to construct a taxonomy for the political debate using a tree structure where:
-    1. The root node represents the overarching debate topic.
-    2. The first level consists of major discussion points for the debate motion.
-    3. The second level breaks down each major discussion point into subcategories.
-    4. Additional levels refine arguments further if needed.
-    Output the taxonomy as a dictionary like in the example.
-    Provide an explanation of your categorisation in less than 50 words.
-    """ \
-    """
-    \nUse the format in the example below:
-    Taxonomy = {
-        "Debate Topic": {
-            "Discussion Point 1": {
-                "Subcategory A": {
-                    "Subsubcategory 1": {},
-                    "Subsubcategory 2": {}
-                },
-                "Subcategory B": {}
-            },
-            "Discussion Point 2": {
-                "Subcategory C": {
-                    "Subsubcategory X": {},
-                    "Subsubcategory Y": {}
-                }
-            }
-        }
-    }
+    # load debate config
+    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "debate_config.yaml")
+    with open(config_path, "r") as file:
+        config = yaml.safe_load(file)
 
-    Explanation: The taxonomy organizes the debate into two primary perspectives: Perspective 1 and Perspective 2. Each perspective contains key arguments, which are further divided into supporting points or counterarguments. This hierarchical structure helps in understanding the debate by breaking down complex arguments into smaller, manageable parts.
-    """
+    if len(sys.argv) > 1:
+        topics = sys.argv[1:]
+    else:
+        topics = config["baseline_debate_topics"]
+    
+    print(f"Starting taxonomy creation for topic: {topics}\n")
 
+    debate_questions = config["baseline_debate_questions"]
+
+    # debate_motion = "The US should take stronger measures to combat climate change."
 
     # create agents
-    agent1 = DebateAgent(name="Maven", model=model1, inst_prompt=taxonomy_prompt, stance="proponent")
-    agent2 = DebateAgent(name="Ray", model=model2, inst_prompt=taxonomy_prompt, stance="opponent")
-    agents = [agent1, agent2]
+    debate_agents = []
+    for agent_cfg in config["debate_agents"]:
+        agent = DebateAgent(
+            identifier=agent_cfg["identifier"],
+            name=agent_cfg["name"],
+            party=agent_cfg["party"],
+            leaning=agent_cfg["leaning"],
+            model=agent_cfg["model"],
+            temperature=config["temperature"]
+        )
+        debate_agents.append(agent)
+    
+    # generate agent personas and verify them
+    for agent in debate_agents:
+        agent._generate_persona_prompt()
+        print(agent.persona_prompt + "\n")
 
     # generate taxonomy
-    taxonomy_gen = TaxonomyGenerator(agents=agents, topic=debate_topic, rounds=1)
-    taxonomy = taxonomy_gen.start(num_debates=1)
-
-
-    
-
-    # two sides = proposition (proponent) & opposition (skeptic) -- British Parliamentary style
-
-    # calculate simple metrics that show improved debate quality
+    for topic, question in zip(topics, debate_questions):
+        taxonomy_gen = TaxonomyGenerator(agents=debate_agents, debate_topic=topic, debate_question=question, taxonomy_rounds=config["taxonomy_rounds"], taxonomy_iterations=config["taxonomy_iterations"])
+        taxonomy = taxonomy_gen.start()
