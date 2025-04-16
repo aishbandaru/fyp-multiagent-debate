@@ -1,4 +1,5 @@
 import os
+import re
 import ast
 import sys
 import yaml
@@ -108,6 +109,15 @@ class DebateManager:
             response = ast.literal_eval(raw_response) if isinstance(raw_response, str) else raw_response
         except Exception:
             response = raw_response.strip('"').replace('\\"', '"')
+        
+        # remove anything inside braces, including the braces themselves
+        if isinstance(response, str):
+            # remove outermost {...} block, even across multiple lines
+            response = re.sub(r'\{[\s\S]*\}', '', response)
+
+            # remove key prefix like "round_1":
+            response = re.sub(r'^"?\w*"?\s*:\s*', '', response).strip(' "\n:')
+
 
         self._print_response(agent.name, response)
 
@@ -135,7 +145,6 @@ class DebateManager:
 
     def _start_taxonomic_debate_with_full_tree(self):
         for agent in self.agents:
-            # self._debate_round(agent, f"Present your opening statement using the taxonomy for the question '{self.debate_question}': '{self.taxonomy}'")
             self._debate_round(agent, f"Present your opening statement using the taxonomy: '{self.taxonomy}'")
 
         for _ in range(1, self.num_debate_rounds - 2): 

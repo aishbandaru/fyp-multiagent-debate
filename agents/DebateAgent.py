@@ -1,17 +1,13 @@
 import os
+import sys
 import json
+import time
 import ollama
-import atexit
 import google.generativeai as genai
 from google.generativeai.types import GenerationConfig
 
+
 genai.configure(api_key=os.environ["GOOGLE_CLOUD_API_KEY"])
-
-# optional cleanup for graceful shutdown
-def cleanup():
-    print("Shutting down cleanly...")
-
-atexit.register(cleanup)
 
 
 class DebateAgent:
