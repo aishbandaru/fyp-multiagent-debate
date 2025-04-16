@@ -4,6 +4,7 @@ import ast
 import sys
 import yaml
 import json
+import multiprocessing
 from datetime import datetime
 
 # Add the project root to the Python path
@@ -79,7 +80,6 @@ class DebateManager:
 
 
     def start(self):
-
         if self.taxonomy != None:
             for _ in range(self.debate_iterations):
                 for debate_structure in self.debate_structures:
@@ -200,7 +200,7 @@ class DebateManager:
 
 
     def _save_evaluation_data(self, debate_structure):
-        save_folder = f"data/eval_data/{self.debate_group}/{debate_structure}/{self.debate_topic.replace(' ', '_') if self.debate_topic else self.debate_question[:-1].replace(' ', '_')}"
+        save_folder = f"data/debate_data/{self.debate_group}/{debate_structure}/{self.debate_topic.replace(' ', '_') if self.debate_topic else self.debate_question[:-1].replace(' ', '_')}"
         os.makedirs(save_folder, exist_ok=True)
         filename = f"{save_folder}/transcript_{self.debate_start_time}.json"
     

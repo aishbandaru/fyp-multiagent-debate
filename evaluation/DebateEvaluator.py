@@ -2,26 +2,18 @@ import os
 import re
 import sys
 import json
+import scipy
 import ollama
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import scipy
+import multiprocessing
+from multiprocessing import Manager, Pool
+import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
+
 from openai import OpenAI
-from dotenv import load_dotenv
-load_dotenv()
 
-# api_key = os.getenv("OPENAI_API_KEY")
-
-# client = OpenAI(api_key=api_key)
-
-# from openai import OpenAI
-# from dotenv import load_dotenv
-# load_dotenv()  
-# api_key = os.getenv("OPENAI_API_KEY")
-
-# client = OpenAI(api_key=api_key)
+client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 
 # Add the project root to the Python path
@@ -165,7 +157,7 @@ class DebateEvaluator:
             if attitude_scores is not None and not self.evaluate_again:
                 result["attitude"] = attitude_scores
             else:
-                attitude_scores = self._evaluate_attitude_scores(transcript, topic, debate_question)
+                attitude_scores = self._evaluate_attitude_scores_parallel(transcript, topic, debate_question)
                 transcript["attitude"] = attitude_scores
                 result["attitude"] = attitude_scores
         elif "final_synthesis" in self.metrics:
@@ -177,6 +169,57 @@ class DebateEvaluator:
             json.dump(transcript, f, indent=4)
 
         return result
+    
+
+    def _evaluate_attitude_scores_parallel(self, transcript, topic_name, debate_question):
+        # Prepare all arguments for parallel processing
+        args = [(transcript, topic_name, round_num) for round_num in range(self.num_debate_rounds)]
+        
+        # Process rounds in parallel
+        with Pool(processes=multiprocessing.cpu_count()) as pool:
+            round_results = pool.starmap(self._evaluate_single_round, args)
+        
+        # Reconstruct the attitude_scores dictionary from the results
+        attitude_scores = {agent: [] for agent in self.debate_group}
+        for round_result in round_results:
+            for agent, score in round_result.items():
+                attitude_scores[agent].append(score)
+        
+        self._generate_attitude_plot(attitude_scores, debate_question)
+        print(f"\nCompleted attitude evaluation of debate topic {topic_name} with question: {debate_question}.\n")
+        return attitude_scores
+
+    def _evaluate_single_round(self, transcript, debate_topic, round_num):
+        round_scores = {}
+        round_num_label = f"round_{round_num}"
+        
+        for agent_type in self.debate_group:
+            response = transcript.get(agent_type, {}).get(round_num_label)
+            if response:
+                score = self._get_llm_attitude_score(response, debate_topic)
+                round_scores[agent_type] = score if score is not None else 4
+            else:
+                round_scores[agent_type] = None
+        
+        return round_scores
+
+    # def _evaluate_round_parallel(self, transcript, attitude_scores, debate_topic, round_num):
+    #     round_num_label = f"round_{round_num}"
+        
+    #     for agent_type in self.debate_group:
+    #         response = transcript.get(agent_type, {}).get(round_num_label)
+
+    #         if response:
+    #             score = self._get_llm_attitude_score(response, debate_topic)
+    #             # Initialize the agent's list in the shared dictionary if not already initialized
+    #             if agent_type not in attitude_scores:
+    #                 attitude_scores[agent_type] = []
+    #             attitude_scores[agent_type].append(score if score is not None else 4)
+    #         else:
+    #             # Initialize the agent's list in the shared dictionary if no response
+    #             if agent_type not in attitude_scores:
+    #                 attitude_scores[agent_type] = []
+    #             attitude_scores[agent_type].append(None)
 
 
     def _evaluate_attitude_scores(self, transcript, topic_name, debate_question):
@@ -215,15 +258,15 @@ class DebateEvaluator:
             try:
                 if (self.model != "gpt") and ("gemini" not in self.model):
                     result = ollama.generate(options={"temperature":0.01}, model=self.model, prompt=prompt)
-                # elif self.model == "gpt":
-                #     completion = client.chat.completions.create(
-                #         model="gpt-4o-mini",
-                #         store=True,
-                #         messages=[
-                #             {"role": "user", "content": prompt}
-                #         ],
-                #     )
-                #     result = completion.choices[0].message.content
+                elif self.model == "gpt":
+                    completion = client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        store=True,
+                        messages=[
+                            {"role": "user", "content": prompt}
+                        ],
+                    )
+                    result = completion.choices[0].message.content
 
                 score = self._parse_score(result)
                 if score is not None:
@@ -238,8 +281,6 @@ class DebateEvaluator:
         return None
 
 
-
-
     def _generate_attitude_judge_prompt(self, response, debate_topic):
         # attitude_scale_desc = "You should rate on a scale from 1 to 7, where: 1 = Strongly Disagree, 2 = Moderately Disagree, 3 = Slightly Disagree, " \
         #     "4 = Neutral, 5 = Slightly Agree, 6 = Moderately Agree, 7 = Strongly Agree."
@@ -247,9 +288,9 @@ class DebateEvaluator:
 
         agreement_statements = {
             "abortion": "Partial birth abortions should be banned to protect unborn children.",
-            "illegal_immigration": "Immigrants take jobs from American-born workers",
+            "illegal immigration": "Immigrants take jobs from American-born workers",
             "gun_violence": "There should be stricter gun ownership laws",
-            "climate_change": "The city should go ahead with go ahead with building the manufacturing plant"
+            "climate change": "The city should go ahead with go ahead with building the manufacturing plant"
         }
 
         # Using prompting technique from paper: https://arxiv.org/pdf/2411.15594, pg7, Section 2.1.1, Fig. 4
@@ -282,7 +323,9 @@ class DebateEvaluator:
         x_vals = list(range(1, self.num_debate_rounds + 1))
 
         # print("X AND Y LENGTHS: ", len(x_vals), len(attitude_scores["neutral"]))
-        # print(x_vals, attitude_scores["neutral"])
+        # print("NEUTRAL: ", x_vals, attitude_scores["neutral"])
+        # print("REPUBLCIAN: ",x_vals, attitude_scores["republican"])
+        # print("DEMOCRAT: ",x_vals, attitude_scores["democrat"])
 
         for agent in self.debate_group:
             color = self.color_mapping.get(agent.split('_')[0].lower(), 'gray')
