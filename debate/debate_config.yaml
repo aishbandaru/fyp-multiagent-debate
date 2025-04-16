@@ -11,6 +11,11 @@ taxonomy_tree_depth: null  # options: 1, 2, 3, null = "unspecified"
 ### for debate ###
 debate_rounds: 1
 debate_iterations: 1
+debate_structures: [["taxonomic", "full_tree"]]
+# ["taxonomic", "full_tree"]
+# ["taxonomic", "traversal"]
+# ["non_taxonomic"]
+
 
 baseline_debate_topics:
   - "illegal immigration"
@@ -24,6 +29,8 @@ baseline_debate_questions:
 - "Should partial birth abortions be banned to protect unborn children?"
 - "Should the city go ahead with building the manufacturing plant?"
 
+# debate_motion = "The US should take stronger measures to combat climate change."
+
 extra_debate_topics:
   - "racism"
   - "evolution"
@@ -32,22 +39,22 @@ extra_debate_topics:
 
 ### for agents ###
 token_limit: 75
-temperature: 0.35
+temperature: 0.3
 debate_agents:
   - identifier: "neutral"
     name: "Sam"
-    model: "llama3.2:3b"
+    model: "gemini-2.0-flash-lite" #"llama3.2:3b", "gemini-1.5-flash"
     party: null
     leaning: null
 
   - identifier: "republican"
     name: "Alex"
-    model: "llama3.2:3b"
+    model: "gemini-2.0-flash-lite"
     party: "Republican"
     leaning: "right-leaning"
 
   - identifier: "democrat"
     name: "Taylor"
-    model: "llama3.2:3b"
+    model: "gemini-2.0-flash-lite"
     party: "Democrat"
     leaning: "left-leaning"

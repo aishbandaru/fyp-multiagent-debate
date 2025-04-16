@@ -1,8 +1,8 @@
-import sys
 import os
-import yaml
 import re
 import ast
+import sys
+import yaml
 import json
 from datetime import datetime
 
@@ -27,14 +27,14 @@ class TaxonomyGenerator:
 
 
     def _get_taxonomy_prompt(self):
-        # You are participating in a structured, political debate on the topic "{debate_topic}" for the debate motion: "{debate_motion}".
+        # You are participating in a political debate on the topic "{debate_topic}" for the debate motion: "{debate_motion}".
         taxonomy_prompt = f"""
-        You are participating in a structured, political debate on the question: "{self.debate_question}". Your goal is to construct a taxonomy for the political debate using a tree structure where:
+        You are participating in a political debate on the question: "{self.debate_question}". Your goal is to construct a taxonomy for the political debate using a tree structure where:
         1. The root node represents the overarching debate topic.
         2. The first level consists of major discussion points for the debate motion.
         3. The second level breaks down each major discussion point into subcategories.
         4. Additional levels refine arguments further if needed.
-        Output the taxonomy as a dictionary like in the example.
+        Output the taxonomy as a dictionary like in the example. Include 4 discussion points.
         Provide an explanation of your categorisation in less than 50 words.
         """ \
         """
@@ -57,7 +57,7 @@ class TaxonomyGenerator:
             }
         }
 
-        Explanation: The taxonomy organizes the debate into two primary perspectives: Discussion Point 1 and Discussion Point 2. Each perspective contains key arguments, which are further divided into supporting points or counterarguments. This hierarchical structure helps in understanding the debate by breaking down complex arguments into smaller, manageable parts.
+        Explanation: The taxonomy organizes the debate into two primary discussion points: Discussion Point 1 and Discussion Point 2. Each points contains key arguments, which are further divided into supporting points or counterarguments. This hierarchical structure helps in understanding the debate by breaking down complex arguments into smaller, manageable parts.
         """
         return taxonomy_prompt
 
@@ -149,11 +149,10 @@ if __name__ == "__main__":
     else:
         topics = config["baseline_debate_topics"]
     
-    print(f"Starting taxonomy creation for topic: {topics}\n")
-
     debate_questions = config["baseline_debate_questions"]
 
-    # debate_motion = "The US should take stronger measures to combat climate change."
+    print(f"Starting taxonomy creation for topics: {topics}\n")
+    start_time = datetime.now()
 
     # create agents
     debate_agents = []
@@ -175,5 +174,14 @@ if __name__ == "__main__":
 
     # generate taxonomy
     for topic, question in zip(topics, debate_questions):
-        taxonomy_gen = TaxonomyGenerator(agents=debate_agents, debate_topic=topic, debate_question=question, taxonomy_rounds=config["taxonomy_rounds"], taxonomy_iterations=config["taxonomy_iterations"])
+        taxonomy_gen = TaxonomyGenerator(
+            agents=debate_agents, 
+            debate_topic=topic, 
+            debate_question=question, 
+            taxonomy_rounds=config["taxonomy_rounds"], 
+            taxonomy_iterations=config["taxonomy_iterations"]
+        )
         taxonomy = taxonomy_gen.start()
+
+    print(f"All taxonomy generation has completed for topics: {topics}")
+    print(f"That took {(datetime.now() - start_time).total_seconds():.2f} seconds")

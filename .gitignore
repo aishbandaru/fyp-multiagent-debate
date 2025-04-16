@@ -4,3 +4,5 @@ __pycache__/
 agents/__pycache__/
 debate/__pycache__/
 *.pyc
+
+data/
