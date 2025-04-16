@@ -252,6 +252,9 @@ if __name__ == "__main__":
 
     debate_questions = config["baseline_debate_questions"]
 
+    print(f"Starting debate generation for topics: {topics}\n")
+    start_time = datetime.now()
+
     # create agents
     debate_agents = []
     for agent_cfg in config["debate_agents"]:
@@ -292,3 +295,6 @@ if __name__ == "__main__":
             debate_structures = config["debate_structures"]
         )
         debate_manager.start()
+
+    print(f"All debate generation has completed for topics: {topics}")
+    print(f"That took {(datetime.now() - start_time).total_seconds():.2f} seconds")
