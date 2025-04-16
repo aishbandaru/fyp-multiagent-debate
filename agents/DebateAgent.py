@@ -1,4 +1,5 @@
 import os
+import json
 import ollama
 import atexit
 import google.generativeai as genai
@@ -26,12 +27,25 @@ class DebateAgent:
         self.temperature = temperature
 
 
-    def _generate_persona_prompt(self):
-        party_support = f" who supports the {self.party} party" if self.party != None else ""
+    def _load_extended_personas(self):
+        persona_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "extended_personas.json")
+        try:
+            with open(persona_file, "r", encoding="utf-8") as file:
+                return json.load(file)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            print(f"Error loading persona file: {e}")
+            return {}
 
-        self.persona_prompt = f"You are {self.name}, " \
-                f"{f'a {self.leaning}' if self.leaning else 'an'} American{party_support}."# \n"
-                # f"{self.debate_purpose}"
+
+    def generate_persona_prompt(self, use_extended_persona=True):
+        if use_extended_persona:
+            extended_persona = self._load_extended_personas().get("generated_personas")
+            self.persona_prompt =  extended_persona.get(self.identifier).get("baseline")
+        else:
+            party_support = f" who supports the {self.party} party" if self.party != None else ""
+            self.persona_prompt = f"You are {self.name}, " \
+                    f"{f'a {self.leaning}' if self.leaning else 'an'} American{party_support}."# \n"
+                    # f"{self.debate_purpose}"
 
 
     def respond(self, debate_phase_prompt, conversation, inst_prompt):

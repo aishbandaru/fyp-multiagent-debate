@@ -261,7 +261,7 @@ if __name__ == "__main__":
     print(f"Agent personas")
     print("="*60 + "\n")
     for agent in debate_agents:
-        agent._generate_persona_prompt()
+        agent.generate_persona_prompt(use_extended_persona=True)
         print(agent.persona_prompt + "\n")
 
     # generate debate
