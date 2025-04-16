@@ -1,6 +1,4 @@
 debate_group: "neutral_republican"  # options: "neutral_republican", "neutral_democrat", "neutral_republican_democrat"
-debate_structure: "structured"  # options: "structured" (via taxonomy), "unstructured"
-
 
 ### for taxonomy ###
 taxonomy_rounds: 1

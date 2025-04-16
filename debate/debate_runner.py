@@ -281,7 +281,5 @@ if __name__ == "__main__":
             debate_rounds=config["debate_rounds"], 
             debate_iterations=config["debate_iterations"],
             debate_structures = config["debate_structures"]
-            # is_structured = config["is_structured"],
-            # give_full_tree=config["give_full_tree"]
         )
         debate_manager.start()
