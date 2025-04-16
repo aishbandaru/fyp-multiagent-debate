@@ -1,0 +1,28 @@
+
+### evaluation config ###
+model: "mistral:7b" 
+evaluate_again: False  # run evaluation on transcripts again, even if evaluated. 
+
+metrics:
+  - "attitude"
+  - "final_synthesis"
+  - "repetition"
+
+
+### debate transcripts config ###
+debate_group: "neutral_republican_democrat"  # options: "neutral_republican", "neutral_democrat", "neutral_republican_democrat",  "republican_republican2", "democrat_democrat2"
+
+num_debate_rounds: 10  # all debates in dir should have same number of rounds
+num_debate_iterations: 10  # run evaluation on the recent 10 debates/transcripts only
+
+debate_structures: 
+  # - "taxonomic_full_tree"
+  # - "taxonomic_traversal"
+  - "non_taxonomic"
+
+
+debate_topics:
+  - "illegal_immigration"
+  - "gun_violence"
+  - "abortion"
+  - "climate_change"

@@ -81,20 +81,20 @@ class DebateManager:
     def start(self):
 
         if self.taxonomy != None:
-            # for _ in range(self.debate_iterations):
-            for debate_structure in self.debate_structures:
-                if debate_structure[0] == "taxonomic":
-                    if debate_structure[1] == "full_tree":
-                        print("tax, full tree")
-                        self._start_taxonomic_debate_with_full_tree()
-                        pass
-                    elif debate_structure[1] == "traversal":
-                        self._start_taxonomic_debate_via_traversal()
-                elif debate_structure[0] == "non_taxonomic":
-                    self._start_non_taxonomic_debate()
+            for _ in range(self.debate_iterations):
+                for debate_structure in self.debate_structures:
+                    if debate_structure[0] == "taxonomic":
+                        if debate_structure[1] == "full_tree":
+                            print("tax, full tree")
+                            self._start_taxonomic_debate_with_full_tree()
+                            pass
+                        elif debate_structure[1] == "traversal":
+                            self._start_taxonomic_debate_via_traversal()
+                    elif debate_structure[0] == "non_taxonomic":
+                        self._start_non_taxonomic_debate()
 
-                self._save_evaluation_data("_".join(debate_structure))  # save debates for evaluation
-                self._clear_data()
+                    self._save_evaluation_data("_".join(debate_structure))  # save debates for evaluation
+                    self._clear_data()
 
 
     def _print_response(self, agent_name, response):
@@ -135,7 +135,7 @@ class DebateManager:
         for agent in self.agents:
             self._debate_round(agent, "Present your opening statement.")
 
-        for _ in range(1, self.num_debate_rounds - 2): 
+        for _ in range(1, self.num_debate_rounds - 1): 
             for agent in self.agents:
                 self._debate_round(agent, "Complete your next reply.")
 
@@ -147,7 +147,7 @@ class DebateManager:
         for agent in self.agents:
             self._debate_round(agent, f"Present your opening statement using the taxonomy: '{self.taxonomy}'")
 
-        for _ in range(1, self.num_debate_rounds - 2): 
+        for _ in range(1, self.num_debate_rounds - 1): 
             for agent in self.agents:
                 self._debate_round(agent, f"Complete your next reply using the taxonomy: '{self.taxonomy}")
 
@@ -207,7 +207,7 @@ class DebateManager:
         with open(filename, "w") as file:
             json.dump(self.data_for_evaluation, file, indent=4)
 
-        print(f"Evaluation data saved:\n- {filename}")
+        print(f"\nEvaluation data saved:\n- {filename}\n")
 
 
 def load_latest_taxonomy(topic):
@@ -246,27 +246,31 @@ if __name__ == "__main__":
         topics = sys.argv[1:]
     else:
         topics = config["baseline_debate_topics"]
-
-    print(f"Debate topics selected: {topics}\n")
-    print(f"Debate structures selected: {config['debate_structures']}\n")
-
+    
+    debate_group = config["debate_group"]
     debate_questions = config["baseline_debate_questions"]
+    debate_structures = config['debate_structures']
+
+    print(f"Debate group selected: {debate_group}\n")
+    print(f"Debate structures selected: {debate_structures}\n")
 
     print(f"Starting debate generation for topics: {topics}\n")
     start_time = datetime.now()
 
     # create agents
     debate_agents = []
+    group_identifiers = debate_group.split("_")
     for agent_cfg in config["debate_agents"]:
-        agent = DebateAgent(
-            identifier=agent_cfg["identifier"],
-            name=agent_cfg["name"],
-            party=agent_cfg["party"],
-            leaning=agent_cfg["leaning"],
-            model=agent_cfg["model"],
-            temperature=config["temperature"]
-        )
-        debate_agents.append(agent)
+        if agent_cfg["identifier"] in group_identifiers:
+            agent = DebateAgent(
+                identifier=agent_cfg["identifier"],
+                name=agent_cfg["name"],
+                party=agent_cfg["party"],
+                leaning=agent_cfg["leaning"],
+                model=agent_cfg["model"],
+                temperature=config["temperature"]
+            )
+            debate_agents.append(agent)
 
     # generate agent personas and verify them
     print("\n" + "="*60)
@@ -285,14 +289,14 @@ if __name__ == "__main__":
         taxonomy = load_latest_taxonomy(topic)
 
         debate_manager = DebateManager(
-            debate_group=config["debate_group"],
+            debate_group=debate_group,
             agents=debate_agents, 
             topic=topic, 
             question=question, 
             taxonomy=taxonomy, 
             debate_rounds=config["debate_rounds"], 
             debate_iterations=config["debate_iterations"],
-            debate_structures = config["debate_structures"]
+            debate_structures=debate_structures
         )
         debate_manager.start()
 

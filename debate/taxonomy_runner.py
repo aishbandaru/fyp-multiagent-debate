@@ -29,12 +29,12 @@ class TaxonomyGenerator:
     def _get_taxonomy_prompt(self):
         # You are participating in a political debate on the topic "{debate_topic}" for the debate motion: "{debate_motion}".
         taxonomy_prompt = f"""
-        You are participating in a political debate on the question: "{self.debate_question}". Your goal is to construct a taxonomy for the political debate using a tree structure where:
+        You are participating in a political debate on the question: "{self.debate_question}". Your goal is to work with other agents to construct a taxonomy for the political debate using a tree structure where:
         1. The root node represents the overarching debate topic.
         2. The first level consists of major discussion points for the debate motion.
         3. The second level breaks down each major discussion point into subcategories.
         4. Additional levels refine arguments further if needed.
-        Output the taxonomy as a dictionary like in the example. Include 4 discussion points.
+        Output the taxonomy as a dictionary like in the example. Include 3 discussion points.
         Provide an explanation of your categorisation in less than 50 words.
         """ \
         """
@@ -66,11 +66,24 @@ class TaxonomyGenerator:
         # for _ in range(self.taxonomy_iterations):  # TODO: save debate data (transcript) + final taxonomy; clear data before every run 
         self._start_taxonomy_debate()
 
+        taxonomy_str = None
+
+        # iterate in reverse to find the last entry from the neutral agent to use as the taxonomy
+
+        # self.conversation_for_taxonomy.reverse()  # This will modify the list in place
+        # print("TESTING SOMETHING", self.conversation_for_taxonomy[0]["agent"])
+
         for entry in reversed(self.conversation_for_taxonomy):
-            # get the last agreed taxonomy
-            if "Taxonomy =" in entry["response"]:
-                taxonomy_str = entry["response"]
-                break
+            if entry["agent"] == "neutral":
+                if "Taxonomy =" in entry["response"]:
+                    taxonomy_str = entry["response"]
+                    break
+
+        # for entry in reversed(self.conversation_for_taxonomy):
+        #     # get the last agreed taxonomy
+        #     if "Taxonomy =" in entry["response"]:
+        #         taxonomy_str = entry["response"]
+        #         break
 
         taxonomy = self._parse_taxonomy(taxonomy_str)
 
@@ -99,11 +112,14 @@ class TaxonomyGenerator:
 
     def _start_taxonomy_debate(self):
         for agent in self.agents:
-            self._debate_round(agent, "Present your opening taxonomy.")
+            self._debate_round(agent, "Present your initial taxonomy of the debate topic.")
 
-        for _ in range(self.taxonomy_rounds - 1): 
+        for _ in range(1, self.taxonomy_rounds - 1): 
             for agent in self.agents:
-                self._debate_round(agent, "Update the taxonomy.")  # Complete your next reply based on the taxonomy so far
+                self._debate_round(agent, "Update the taxonomy based on previous contributions by other agents. You may refine, merge, or extend existing points.")  # Complete your next reply based on the taxonomy so far
+
+        for agent in self.agents:
+            self._debate_round(agent, "Present your final taxonomy of the debate topic.")
 
 
     def _debate_round(self, agent, debate_phase_prompt=None):
@@ -113,7 +129,7 @@ class TaxonomyGenerator:
         self._print_response(agent.name, response)
 
         self.ordered_conversation_history.append(f"{agent.name}: {response}")
-        self.conversation_for_taxonomy.append({"agent": agent, "response": response})
+        self.conversation_for_taxonomy.append({"agent": agent.identifier, "response": response})
 
 
     def _print_response(self, agent_name, response):
