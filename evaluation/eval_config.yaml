@@ -1,7 +1,7 @@
 
 ### evaluation config ###
 model: "gpt"  # options: "mistral:7b", "gpt"
-evaluate_again: True  # run evaluation on transcripts again, even if evaluated. 
+evaluate_again: False  # run evaluation on transcripts again, even if evaluated. 
 
 metrics:
   - "attitude"
@@ -13,16 +13,16 @@ metrics:
 debate_group: "neutral_republican_democrat"  # options: "neutral_republican", "neutral_democrat", "neutral_republican_democrat",  "republican_republican2", "democrat_democrat2"
 
 num_debate_rounds: 10  # all debates in dir should have same number of rounds
-num_debate_iterations: 20  # run evaluation on the recent 10 debates/transcripts only
+num_debate_iterations: 10  # run evaluation on the recent 10 debates/transcripts only
 
 debate_structures: 
   # - "taxonomic_full_tree"
-  # - "taxonomic_traversal"
-  - "non_taxonomic"
+  - "taxonomic_traversal"
+  # - "non_taxonomic"
 
 
 debate_topics:
   - "illegal_immigration"
-  - "gun_violence"
-  - "abortion"
-  - "climate_change"
+  # - "gun_violence"
+  # - "abortion"
+  # - "climate_change"

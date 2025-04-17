@@ -80,21 +80,21 @@ class DebateManager:
 
 
     def start(self):
-        if self.taxonomy != None:
-            for _ in range(self.debate_iterations):
-                for debate_structure in self.debate_structures:
-                    if debate_structure[0] == "taxonomic":
-                        if debate_structure[1] == "full_tree":
-                            print("tax, full tree")
-                            self._start_taxonomic_debate_with_full_tree()
-                            pass
-                        elif debate_structure[1] == "traversal":
-                            self._start_taxonomic_debate_via_traversal()
-                    elif debate_structure[0] == "non_taxonomic":
-                        self._start_non_taxonomic_debate()
+        if self.taxonomy == None:
+            print(f"Warning: Taxonomy is not found for {self.debate_topic}.")
+            return
 
-                    self._save_evaluation_data("_".join(debate_structure))  # save debates for evaluation
-                    self._clear_data()
+        for _ in range(self.debate_iterations):
+            for debate_structure in self.debate_structures:
+                if debate_structure == "taxonomic_full_tree":
+                    self._start_taxonomic_debate_with_full_tree()
+                elif debate_structure == "taxonomic_traversal":
+                    self._start_taxonomic_debate_via_traversal()
+                elif debate_structure == "non_taxonomic":
+                    self._start_non_taxonomic_debate()
+
+                self._save_evaluation_data(debate_structure)  # save debates for evaluation
+                self._clear_data()
 
 
     def _print_response(self, agent_name, response):
@@ -117,7 +117,6 @@ class DebateManager:
 
             # remove key prefix like "round_1":
             response = re.sub(r'^"?\w*"?\s*:\s*', '', response).strip(' "\n:')
-
 
         self._print_response(agent.name, response)
 
@@ -144,46 +143,111 @@ class DebateManager:
 
 
     def _start_taxonomic_debate_with_full_tree(self):
+        taxonomy_str = self._format_taxonomy_for_prompt()
+
+        print("\n" + "=" * 60)
+        print(f"\nFormatted Taxonomy: {taxonomy_str}\n")
+        print("=" * 60 + "\n")
+
         for agent in self.agents:
-            self._debate_round(agent, f"Present your opening statement using the taxonomy: '{self.taxonomy}'")
+            prompt = f"Present your opening statement. You may refer to these structured debate dimensions:\n{taxonomy_str}\n"
+            self._debate_round(agent, prompt.strip())
 
         for _ in range(1, self.num_debate_rounds - 1): 
             for agent in self.agents:
-                self._debate_round(agent, f"Complete your next reply using the taxonomy: '{self.taxonomy}")
+                prompt = (
+                    f"Complete your next reply, referencing relevant structured debate dimensions from:\n{taxonomy_str}\n"
+                    "Respond to previous points and advance your position."
+                )
+                self._debate_round(agent, prompt.strip())
 
         for agent in self.agents:
-            self._debate_round(agent, f"Present your closing statement using the taxonomy: '{self.taxonomy}")
+            prompt = f"Present your closing statement. You may refer to these structured debate dimensions:\n{taxonomy_str}\n"
+            self._debate_round(agent, prompt.strip())
+
+
+    def _format_taxonomy_for_prompt(self):
+        """Convert taxonomy to a clean prompt-friendly format"""
+        if not self.taxonomy:
+            return ""
+        
+        def format_level(data, level=0):
+            items = []
+            for key, value in data.items():
+                items.append("  " * level + f"- {key}")
+                if value:
+                    items.extend(format_level(value, level + 1))
+            return items
+        
+        # get first level of taxonomy (main question)
+        main_question, taxonomy_tree = next(iter(self.taxonomy.items()))
+        formatted = [f"Taxonomy for: {main_question}"] + format_level(taxonomy_tree)
+        return "\n".join(formatted)
 
 
     def _start_taxonomic_debate_via_traversal(self):
+        taxonomy_str = self._format_taxonomy_for_prompt()
 
         for agent in self.agents:
-            self._debate_round(agent, "Present your opening statement for the debate.")
+            prompt = f"Present your opening statement. You may refer to these structured debate dimensions:\n{taxonomy_str}\n"
+            self._debate_round(agent, prompt.strip())
 
-        _, discussion_points = next(iter(self.taxonomy.items()))
-        discussion_points = dict(list(discussion_points.items())[:1])
-        for discussion_point, arguments in discussion_points.items():
-            print("\n" + "="*60)
+        # discussion rounds using structured taxonomy
+        for discussion_point in self._get_taxonomy_traversal_points(limit_top_n=None):
+            print("\n" + "=" * 60)
             print(f"\nDiscussion Point: {discussion_point}\n")
-
-            print(f"Arguments: {arguments}\n")
-            print("="*60 + "\n")
-
-            # for argument, counterarguments in arguments.items():
-            #     print(f"Starting sub-debate for argument: '{argument}'\n")
-            #     print("="*60 + "\n")
-
-                # for agent in self.agents:
-                #     self._debate_round(agent, f"Present your opening statement for the argument: '{argument}'.")
+            print("=" * 60 + "\n")
 
             argument_rounds = 3
             for _ in range(argument_rounds): 
                 for agent in self.agents:
-                    self._debate_round(agent, f"Complete your next reply for the debate using the taxonomy for the discussion point '{discussion_point}': '{arguments}'.")
+                    prompt = (
+                        f"Complete your next reply, referencing relevant structured debate dimensions from:\n{discussion_point}\n"
+                        "Respond to previous points and advance your position."
+                    )
+                    self._debate_round(agent, prompt.strip())
 
         for agent in self.agents:
-            self._debate_round(agent, "Present your closing statement for the debate.")
-            
+            prompt = f"Present your closing statement. You may refer to these structured debate dimensions:\n{taxonomy_str}\n"
+            self._debate_round(agent, prompt.strip())
+
+
+    def _get_taxonomy_traversal_points(self, limit_top_n=None):
+        """Return structured discussion points from taxonomy as formatted strings.
+        
+        Args:
+            limit_top_n: Number of top-level discussion points to return (None for all)
+        
+        Returns:
+            List of formatted discussion point strings with their subtrees
+        """
+        if not self.taxonomy:
+            return []
+
+        def format_subtree(data, level=0):
+            items = []
+            for key, value in data.items():
+                items.append("  " * level + f"- {key}")
+                if value:
+                    items.extend(format_subtree(value, level + 1))
+            return items
+
+        # get the taxonomy tree (skip main question)
+        _, taxonomy_tree = next(iter(self.taxonomy.items()))
+        
+        # get top-level discussion points
+        discussion_items = list(taxonomy_tree.items())
+        if limit_top_n:
+            discussion_items = discussion_items[:limit_top_n]
+        
+        # format each discussion point with its subtree
+        formatted_points = []
+        for point, arguments in discussion_items:
+            point_tree = {point: arguments}
+            formatted_points.append("\n".join(format_subtree(point_tree)))
+        
+        return formatted_points
+
 
     def get_relative_path(self, filename, folder="debate"):
         # to enable running from root folder or debate subfolder

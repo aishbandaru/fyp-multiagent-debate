@@ -109,8 +109,8 @@ class DebateEvaluator:
             mean_last_round = np.mean(scores_per_round_np[:, -1])
             mean_travel = mean_last_round - mean_first_round
 
-            iqr_values = scipy.stats.iqr(scores_per_round_np, axis=0)
-            mean_iqr = np.mean(iqr_values)
+            iqr_per_round = scipy.stats.iqr(scores_per_round_np, axis=1)
+            mean_iqr = np.mean(iqr_per_round)
 
             # Linear regression to compute gradient
             X = np.arange(scores_per_round_np.shape[1]).reshape(-1, 1)
@@ -282,14 +282,14 @@ class DebateEvaluator:
 
 
     def _generate_attitude_judge_prompt(self, response, debate_topic):
-        # attitude_scale_desc = "You should rate on a scale from 1 to 7, where: 1 = Strongly Disagree, 2 = Moderately Disagree, 3 = Slightly Disagree, " \
-        #     "4 = Neutral, 5 = Slightly Agree, 6 = Moderately Agree, 7 = Strongly Agree."
-        attitude_scale_desc = "You should rate on a scale from 1 (strongly disagree) to 7 (strongly agree)"
+        attitude_scale_desc = "You should rate on a scale from 1 to 7, where: 1 = Strongly Disagree, 2 = Moderately Disagree, 3 = Slightly Disagree, " \
+            "4 = Neutral, 5 = Slightly Agree, 6 = Moderately Agree, 7 = Strongly Agree."
+        # attitude_scale_desc = "You should rate on a scale from 1 (strongly disagree) to 7 (strongly agree)"
 
         agreement_statements = {
             "abortion": "Partial birth abortions should be banned to protect unborn children.",
             "illegal immigration": "Immigrants take jobs from American-born workers",
-            "gun_violence": "There should be stricter gun ownership laws",
+            "gun violence": "There should be stricter gun ownership laws",
             "climate change": "The city should go ahead with go ahead with building the manufacturing plant"
         }
 
@@ -363,95 +363,94 @@ class DebateEvaluator:
 
     def _generate_attitude_box_plot(self, attitude_scores, topic_name):  
         turns = np.array(range(1, self.num_debate_rounds + 1), dtype=np.float32)
-
-        # read metrics CSV
+        
+        # Read metrics CSV
         metrics_path = self._get_relative_path(f"{'_'.join(self.debate_group)}/{self.structure_topic_path}", "data/evaluation")
         metrics_file = os.path.join(metrics_path, f"metrics_{topic_name}_{self.num_debate_rounds}_rounds.csv")
         metrics = pd.read_csv(metrics_file)
 
-        min_max_upper_lower_scores = {}
-
-        for agent, rounds in attitude_scores.items():
-            rounds_array = np.array(rounds)
-            
-            # compute min and max values per debate (across all agents for each round)
-            min_max_upper_lower_scores[agent] = {
-                'min': np.min(rounds_array, axis=0),  
-                'max': np.max(rounds_array, axis=0),
-                'upper': np.quantile(rounds_array, 0.75, axis=0),
-                'lower': np.quantile(rounds_array, 0.25, axis=0)
-            }
-
-        plt.figure(figsize=(10, 5))
-
-        # plot whiskers only
-        for agent, min_max_upper_lower in min_max_upper_lower_scores.items():
-            min_scores = min_max_upper_lower['min']
-            max_scores = min_max_upper_lower['max']
-            upper_scores = min_max_upper_lower['upper']
-            lower_scores = min_max_upper_lower['lower']
-
-            colour = self.color_mapping[agent]
-            
-            for i in range(len(turns)):
-                # vertical line
-                plt.plot([turns[i], turns[i]], [lower_scores[i], upper_scores[i]], color=colour, linewidth=2)
-                
-                # Top cap 
-                plt.plot([turns[i] - 0.1, turns[i] + 0.1], [upper_scores[i], upper_scores[i]], color=colour, linewidth=2)
-                
-                # Bottom cap 
-                plt.plot([turns[i] - 0.1, turns[i] + 0.1], [lower_scores[i], lower_scores[i]], color=colour, linewidth=2)
-
-                plt.scatter(turns[i], max_scores[i], color=colour, marker="x", s=50 )  
-                plt.scatter(turns[i], min_scores[i], color=colour, marker="x", s=50)  
-
-        mean_scores = {}
-        for agent in self.debate_group:
-            mean_scores[agent] = np.mean(np.array(attitude_scores[agent]).T, axis=1)
+        # Create figure with adjusted height
+        plt.figure(figsize=(10.5, 7.0))  # Adjusted height for 2-line legend
         
-            
+        # Plot all elements
         for agent in self.debate_group:
-            line, = plt.plot(turns, mean_scores[agent], marker="o", linestyle="dashed", color=self.color_mapping[agent])
+            scores_array = np.array(attitude_scores[agent])
+            q1 = np.percentile(scores_array, 25, axis=0)
+            q3 = np.percentile(scores_array, 75, axis=0)
+            min_vals = np.min(scores_array, axis=0)
+            max_vals = np.max(scores_array, axis=0)
+            color = self.color_mapping[agent]
+            
+            for i, turn in enumerate(turns):
+                plt.plot([turn, turn], [q1[i], q3[i]], 
+                        color=color, linewidth=2, alpha=0.7)
+                plt.plot([turn-0.1, turn+0.1], [q1[i], q1[i]], 
+                        color=color, linewidth=2, alpha=0.7)
+                plt.plot([turn-0.1, turn+0.1], [q3[i], q3[i]], 
+                        color=color, linewidth=2, alpha=0.7)
+                plt.scatter(turn, min_vals[i], color=color, marker='x', s=50, zorder=3)
+                plt.scatter(turn, max_vals[i], color=color, marker='x', s=50, zorder=3)
 
-            # retrieve agent metrics
+        # Plot mean lines
+        mean_lines = []
+        for agent in self.debate_group:
+            mean_scores = np.mean(np.array(attitude_scores[agent]), axis=0)
+            line = plt.plot(turns, mean_scores, linestyle="-",
+                        linewidth=2.5, color=self.color_mapping[agent], zorder=2)
+            mean_lines.append(line[0])
+
+        # Create compact legend labels
+        legend_labels = []
+        for agent in self.debate_group:
             agent_metrics = metrics[metrics["agent"] == agent].iloc[0]
-            legend_entry = (
-                f"{agent.title()}  (mTravel: {agent_metrics['mean_travel']}, "
-                f"mIQR: {agent_metrics['mean_iqr']}, m: {agent_metrics['gradient']})"
+            legend_labels.append(
+                f"{agent.title()} (travel: {agent_metrics['mean_travel']:.2f} " + 
+                f"IQR: {agent_metrics['mean_iqr']:.2f} m: {agent_metrics['gradient']:.2f})"
             )
 
-            # attach the formatted legend entry to the plotted line
-            line.set_label(legend_entry)
+        # Calculate optimal columns for 2-line legend
+        n_agents = len(self.debate_group)
+        ncol = n_agents // 2 + n_agents % 2  # Split into 2 roughly equal lines
 
-        # now plt.legend() will use these labels
-        plt.legend(loc="best")
+        # Put legend below current axis
+        leg = plt.legend(mean_lines, legend_labels,
+            loc='upper center',
+            bbox_to_anchor=(0.5, -0.15),
+            ncol=ncol,
+            fontsize=11.5,
+            framealpha=0.9,
+            handlelength=1.5,
+            columnspacing=1.0,
+            handletextpad=0.5,  # Space between handle and text
+            labelspacing=0.5,   # Space between entries
+            borderpad=0.5)      # Space around legend content
 
-        plt.xlabel("Debate Turns", fontsize=10)
-        plt.ylabel(f"<- Disagree | Agree ->", fontsize=10)
+        # Adjust plot margins
+        plt.subplots_adjust(bottom=0.25 + 0.05*n_agents)  # Dynamic bottom margin
 
+        # Formatting
+        plt.xlabel("Debate Round", fontsize=11.5)
+        plt.ylabel("Attitude Score (1-7)", fontsize=11.5)
+        
         debate_question_dict = {
             "illegal_immigration": "Do immigrants take jobs from American-born workers?",
             "gun_violence": "Should there be stricter gun ownership laws?",
             "abortion": "Should partial birth abortions be banned to protect unborn children?",
             "climate_change": "Should the city go ahead with building the manufacturing plant?"
         }
-        plt.title(f"Attitude Shift: {debate_question_dict[topic_name]}", fontsize=12)
-
-        plt.legend(fontsize=8)
-        plt.grid(True)
-
+        plt.title(f"Attitude Shifts: {debate_question_dict.get(topic_name, topic_name)}", 
+                fontsize=12, pad=15)
+        
+        plt.grid(True, alpha=0.3)
         plt.ylim(1, 7)
-        plt.xlim(1, self.num_debate_rounds)
-        plt.xticks(range(1, self.num_debate_rounds))
+        plt.xlim(0.5, self.num_debate_rounds+0.5)
+        plt.xticks(range(1, self.num_debate_rounds+1))
 
-        # save plots
+        # Save plot
         plot_dir = self._get_relative_path(f"{'_'.join(self.debate_group)}/{self.structure_topic_path}", "data/evaluation")
         os.makedirs(plot_dir, exist_ok=True)
-
         plot_path = os.path.join(plot_dir, f"box_plot_{topic_name}_{self.num_debate_rounds}_rounds.pdf")
-        plt.savefig(plot_path)
-        #plt.show()
+        plt.savefig(plot_path, bbox_inches='tight', dpi=300)
         plt.close()
         print(f"Generated box plot: {plot_path}")
 

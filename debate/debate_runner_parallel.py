@@ -71,6 +71,7 @@ if __name__ == "__main__":
 
     start_time = datetime.now()
     print(f"Running parallel debates for topics: {topics}\n")
+    print("Selected debate")
 
     # Launch parallel debates
     # for topic, question in zip(topics, debate_questions):
