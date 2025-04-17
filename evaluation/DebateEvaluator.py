@@ -23,7 +23,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 class DebateEvaluator:
     def __init__(self, model, debate_group, debate_structures, num_rounds, num_iterations, metrics, evaluate_again, debate_topics):
         self.model = model
-        self.num_model_calls = 3
+        self.num_model_calls = 2
         self.evaluate_again = evaluate_again
         self.metrics = metrics if metrics is not None else ["attitude", "final_synthesis", "repetition"]
 

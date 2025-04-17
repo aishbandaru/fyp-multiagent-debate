@@ -17,10 +17,11 @@ class TaxonomyGenerator:
         self.debate_topic = debate_topic
         self.debate_question = debate_question
         self.taxonomy_prompt = self._get_taxonomy_prompt()
-        # print("TAXONOMY PROMPT: ", self.taxonomy_prompt, "\n")
+
         self.agents = agents
         self.taxonomy_rounds = taxonomy_rounds
         self.taxonomy_iterations = taxonomy_iterations
+        self.num_discussion_points = 4  # number of main key points to generate per debate question
 
         self.ordered_conversation_history = []  # [{"agent: response"}, ...]
         self.conversation_for_taxonomy = []  # [{"agent": agent, "response": response}, ...]
@@ -34,7 +35,7 @@ class TaxonomyGenerator:
         2. The first level consists of major discussion points for the debate motion.
         3. The second level breaks down each major discussion point into subcategories.
         4. Additional levels refine arguments further if needed.
-        Output the taxonomy as a dictionary like in the example. Include 3 discussion points.
+        Output the taxonomy as a dictionary like in the example. Include {self.num_discussion_points} discussion points.
         Provide an explanation of your categorisation in less than 50 words.
         """ \
         """

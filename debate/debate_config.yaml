@@ -7,29 +7,25 @@ taxonomy_tree_depth: null  # options: 1, 2, 3, null = "unspecified"
 
 
 ### for debate ###
-debate_rounds: 3
-debate_iterations: 10
-# debate_structures:
-#   # - ["taxonomic", "full_tree"]
-#   - ["taxonomic", "traversal"]
-#   # - ["non_taxonomic"]
+debate_rounds: 20
+debate_iterations: 20
 debate_structures: 
+  - "non_taxonomic"
   # - "taxonomic_full_tree"
-  - "taxonomic_traversal"
-  # - "non_taxonomic"
+  # - "taxonomic_traversal"
 
 
 baseline_debate_topics:
   - "illegal immigration"
-  # - "gun violence"
-  # - "abortion"
-  # - "climate change"
+  - "gun violence"
+  - "abortion"
+  - "climate change"
 
 baseline_debate_questions:
 - "Do immigrants take jobs from American-born workers?"
-# - "Should there be stricter gun ownership laws?"
-# - "Should partial birth abortions be banned to protect unborn children?"
-# - "Should the city go ahead with building the manufacturing plant?"
+- "Should there be stricter gun ownership laws?"
+- "Should partial birth abortions be banned to protect unborn children?"
+- "Should the city go ahead with building the manufacturing plant?"
 
 
 extra_debate_topics:

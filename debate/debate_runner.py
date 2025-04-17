@@ -198,7 +198,7 @@ class DebateManager:
             print(f"\nDiscussion Point: {discussion_point}\n")
             print("=" * 60 + "\n")
 
-            argument_rounds = 3
+            argument_rounds = 5
             for _ in range(argument_rounds): 
                 for agent in self.agents:
                     prompt = (
