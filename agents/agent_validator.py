@@ -17,6 +17,7 @@ from agents.DebateAgent import DebateAgent
 
 MODEL = "gemini-2.0-flash-lite"
 AGENT_NAMES = {"neutral": "Sam", "republican": "Alex", "democrat": "Taylor", "republican2": "Riley", "republican3": "Morgan", "democrat2": "Quinn", "democrat3": "Drew"}
+BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 
 
 # total questions: 45 (3 questions in each of 15 political issues)
@@ -131,23 +132,27 @@ def interview_agents(agents, questions, csv_filename):
     csv_data = []
     for i, agent in enumerate(agents):
         print(f"Currently processing Agent number {i + 1} out of {len(agents)}")
-        print(f"Agent: {agent.name}, Model: {agent.model}, Affiliation: {agent.identifier.title()}")
-        
-        agent.generate_prompt(use_extended_personas=True)
+        print(f"Agent: {agent.name}, Model: {agent.model}, Affiliation: {agent.identifier}")
 
-        for question in questions["all"]:
-            question_prompt = f"Answer the question from your political perspective in 50 words or less: {question}"
-            response = agent.respond(question_prompt, conversation="")
+        agent.generate_persona_prompt()
 
-            print(question)
-            print(f"{agent.name}: {response}")
-            
-            csv_data.append([
-                agent.name,
-                agent.identifier.title(),
-                question,
-                response
-            ])
+        # Iterate over categories in questions
+        for category, category_questions in questions.items():
+            for question in category_questions:
+                question_prompt = f"Answer the question from your political perspective in 50 words or less: {question}"
+                response = agent.respond(debate_phase_prompt=None, conversation="", inst_prompt=question_prompt)
+
+                print(f"Category: {category}")
+                print(question)
+                print(f"{agent.name}: {response}")
+                
+                csv_data.append([
+                    agent.name,
+                    agent.identifier.title(),
+                    category,  # Add category here
+                    question,
+                    response
+                ])
         
         if i % 10 == 0 or i == len(agents) - 1:  # save every 10 agents
             append_to_csv(csv_filename, csv_data)
@@ -156,11 +161,11 @@ def interview_agents(agents, questions, csv_filename):
 
 
 def start_interivews():
-    base_path = os.path.dirname(os.path.abspath(__file__))
-    personas_file = os.path.join(base_path, "extended_personas.json")
-    csv_filename = os.path.join(base_path, "agent_validation.csv")
+    BASE_PATH = os.path.dirname(os.path.abspath(__file__))
+    personas_file = os.path.join(BASE_PATH, "extended_personas.json")
+    csv_filename = os.path.join(BASE_PATH, "agent_validation.csv")
 
-    csv_header = ["Agent Name", "Affiliation", "Question", "Response"]
+    csv_header = ["Agent Name", "Affiliation", "Category", "Question", "Response"]
     
     personas = load_personas(personas_file)
     agents = create_agents(personas, AGENT_NAMES)
@@ -171,21 +176,24 @@ def start_interivews():
 
 
 
-def evaluate_response(question, response, affiliation, gender, age):
+def evaluate_response(question, response, affiliation):
+    political_affiliation = None
 
     if affiliation == "neutral":
-        political_affiliation = "Neutral American"
+        political_affiliation = "Neutral American"  # with centrist views"
     elif affiliation == "republican":
-        political_affiliation = "Republican American"
+        political_affiliation = "Republican American"  # with right-leaning views"
     elif affiliation == "democrat":
-            political_affiliation = "Democrat American"
+            political_affiliation = "Democrat American"  # with left-leaning views"
+
+    print(f"Affiliation is: {affiliation}\n")
 
     prompt = f"""
-    Does the response reflect the typical views of the political affiliation on the question '{question}'? Answer "Yes" or "No".
-    If your answer is "No", explain your reasoning in less than 50 words.
+    Does the response reflect the typical views of the given affiliation on the question '{question}'? Answer "Yes" or "No".
+    Explain your reasoning in less than 50 words.
 
     Response: {response}
-    Political Affiliation: {political_affiliation}
+    Affiliation: {political_affiliation}
     """
 
     try:
@@ -200,22 +208,23 @@ def evaluate_response(question, response, affiliation, gender, age):
         evaluation = answer_match.group(1).capitalize() if answer_match else "Error: Unable to parse"
 
         # Extract explanation if "No"
-        if evaluation.lower() == "no":
-            explanation_match = re.search(r'(?:Explanation\s*:)?\s*(.+)', llm_text, re.IGNORECASE | re.DOTALL)
-            explanation = explanation_match.group(1).strip() if explanation_match else "Error: No explanation found"
-        else:
-            explanation = ""
+        # if evaluation.lower() == "no":
+        explanation_match = re.search(r'(?:Explanation\s*:)?\s*(.+)', llm_text, re.IGNORECASE | re.DOTALL)
+        explanation = explanation_match.group(1).strip() if explanation_match else "Error: No explanation found"
+        # else:
+        #     explanation = ""
 
-        # print(evaluation, explanation)
+        print(evaluation, explanation)
         return evaluation, explanation
     except Exception as e:
+        print("Exception: ", str(e))
         return "Error", str(e)
 
 
 def evaluate_interviews():
-    base_path = os.path.dirname(os.path.abspath(__file__))
-    input_csv_filename = os.path.join(base_path, "agent_validation.csv")
-    output_csv_filename = os.path.join(base_path, "agent_validation_evaluated.csv")
+    BASE_PATH = os.path.dirname(os.path.abspath(__file__))
+    input_csv_filename = os.path.join(BASE_PATH, "agent_validation.csv")
+    output_csv_filename = os.path.join(BASE_PATH, "agent_validation_evaluated.csv")
 
     batch_size = 100
 
@@ -223,13 +232,19 @@ def evaluate_interviews():
         reader = csv.DictReader(csvfile)
         rows = list(reader)
 
+        print("READER FIELDNAMES = ", reader.fieldnames)
+
         fieldnames = reader.fieldnames + ["Evaluation", "Explanation"]
 
         for i, row in enumerate(rows):
             if "Evaluation" in row and row["Evaluation"]:  # skip already processed rows
                 continue
 
-            evaluation, explanation = evaluate_response(row["Question"], row["Response"], row["Affiliation"])
+            # print("CATEGORY: ", row["Category"])
+            # print("QUESTION: ", row["Question"])
+            # print("RESONSE: ", row["Response"])
+
+            evaluation, explanation = evaluate_response(row.get("Question"), row.get("Response"), row["Affiliation"])
             row["Evaluation"] = evaluation
             row["Explanation"] = explanation
 
@@ -244,13 +259,18 @@ def evaluate_interviews():
 
 
 def load_and_prepare_data(simple_csv, extended_csv):
-    # Load both datasets
-    df_simple = pd.read_csv(simple_csv)
-    df_extended = pd.read_csv(extended_csv)
-    
-    # Add persona type identifier
-    df_simple['Persona Type'] = 'Simple'
-    df_extended['Persona Type'] = 'Extended'
+    # Load both datasets if available
+    if simple_csv is not None:
+        df_simple = pd.read_csv(simple_csv)
+        df_simple['Persona Type'] = 'Simple'
+    else:
+        df_simple = pd.DataFrame()  # Empty DataFrame if not provided
+
+    if extended_csv is not None:
+        df_extended = pd.read_csv(extended_csv)
+        df_extended['Persona Type'] = 'Extended'
+    else:
+        df_extended = pd.DataFrame()  # Empty DataFrame if not provided
     
     # Combine datasets
     df_combined = pd.concat([df_simple, df_extended])
@@ -273,7 +293,7 @@ def load_and_prepare_data(simple_csv, extended_csv):
     
     return results
 
-def create_radar_chart(data, output_file="radar_comparison.png"):
+def create_radar_chart(data, output_file="radar_comparison.pdf"):
     # Prepare data for radar chart
     categories = list(INTERVIEW_QUESTIONS.keys())
     N = len(categories)
@@ -321,30 +341,36 @@ def create_radar_chart(data, output_file="radar_comparison.png"):
     
     # Adjust layout and save
     plt.tight_layout()
-    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    plt.savefig(os.path.join(BASE_PATH, output_file), dpi=300, bbox_inches='tight')
     plt.close()
     
     print(f"Radar chart saved as {output_file}")
 
-
-def visualise_evaluation():
-    # Paths to your CSV files
-    simple_csv = "path/to/simple_personas_results.csv"
+def visualise_evaluation(flag_only_extended=False):
+    simple_csv = ""  #os.path.join(BASE_PATH, "simple_agent_validation_evaluated.csv")
+    extended_csv = os.path.join(BASE_PATH, "agent_validation_evaluated.csv")
     
-    extended_csv = "path/to/extended_personas_results.csv"
-    
-    # Verify files exist
-    if not os.path.exists(simple_csv):
-        raise FileNotFoundError(f"Simple personas CSV not found at {simple_csv}")
-    if not os.path.exists(extended_csv):
+    # Verify at least one CSV file exists
+    if flag_only_extended and not os.path.exists(extended_csv):
         raise FileNotFoundError(f"Extended personas CSV not found at {extended_csv}")
     
+    if not flag_only_extended:
+        if not os.path.exists(simple_csv) or not os.path.exists(extended_csv):
+            raise FileNotFoundError("Both simple and extended personas CSV files are required for comparison.")
+    
     # Process data and create visualization
-    prepared_data = load_and_prepare_data(simple_csv, extended_csv)
-    create_radar_chart(prepared_data)
+    if flag_only_extended:
+        print("Only Extended persona data available. Visualising Extended persona evaluation.")
+        prepared_data = load_and_prepare_data(None, extended_csv)
+        create_radar_chart(prepared_data, output_file="extended_persona_comparison.pdf")
+        
+    else:
+        print("Both Simple and Extended persona data available. Visualising both.")
+        prepared_data = load_and_prepare_data(simple_csv, extended_csv)
+        create_radar_chart(prepared_data)
 
 
 if __name__ == "__main__":
-    start_interivews()
+    # start_interivews()
     # evaluate_interviews()
-    # visualise_evaluation()
+    visualise_evaluation(flag_only_extended=True)

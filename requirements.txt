@@ -1,2 +1,10 @@
 ollama
-yaml
+datetime
+pyyaml
+matplotlib
+google-generativeai
+scikit-learn
+pandas
+numpy==1.22.4
+seaborn
+python-dotenv
