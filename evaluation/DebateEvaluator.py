@@ -10,7 +10,6 @@ import multiprocessing
 from multiprocessing import Manager, Pool
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
-
 from openai import OpenAI
 
 client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])

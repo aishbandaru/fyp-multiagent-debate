@@ -24,7 +24,7 @@ class DebateAgent:
 
 
     def _load_extended_personas(self):
-        persona_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "extended_personas.json")
+        persona_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "personas.json")
         try:
             with open(persona_file, "r", encoding="utf-8") as file:
                 return json.load(file)
@@ -35,13 +35,15 @@ class DebateAgent:
 
     def generate_persona_prompt(self, use_extended_persona=True):
         if use_extended_persona:
-            extended_persona = self._load_extended_personas().get("generated_personas")
+            extended_persona = self._load_extended_personas().get("extended_personas")
             self.persona_prompt =  extended_persona.get(self.identifier).get("baseline")
         else:
-            party_support = f" who supports the {self.party} party" if self.party != None else ""
-            self.persona_prompt = f"You are {self.name}, " \
-                    f"{f'a {self.leaning}' if self.leaning else 'an'} American{party_support}."# \n"
-                    # f"{self.debate_purpose}"
+            simple_persona = self._load_extended_personas().get("simple_personas")
+            self.persona_prompt =  simple_persona.get(self.identifier).get("baseline")
+
+            # previous simple personas:
+            # You are Alex, a right-leaning American who supports the Republican party.
+            # You are Taylor, a left-leaning American who supports the Democrat party.
 
 
     def respond(self, debate_phase_prompt, conversation, inst_prompt):

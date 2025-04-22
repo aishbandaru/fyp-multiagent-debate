@@ -9,15 +9,18 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
+from openai import OpenAI
+
+client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from agents.DebateAgent import DebateAgent
 
 
-MODEL = "gemini-2.0-flash-lite"
-AGENT_NAMES = {"neutral": "Sam", "republican": "Alex", "democrat": "Taylor", "republican2": "Riley", "republican3": "Morgan", "democrat2": "Quinn", "democrat3": "Drew"}
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
+AGENT_MODEL = "gemini-2.0-flash-lite"
+AGENT_NAMES = {"neutral": "Sam", "republican": "Alex", "democrat": "Taylor", "republican2": "Riley", "republican3": "Morgan", "democrat2": "Quinn", "democrat3": "Drew"}
+EVALUATION_MODEL = "gpt-4o-mini"  # options: "mistral:7b", "gpt-4o-mini"
 
 
 # total questions: 45 (3 questions in each of 15 political issues)
@@ -100,10 +103,13 @@ INTERVIEW_QUESTIONS = quiz_questions = {
 }
 
 
-def load_personas(filename):
+def load_personas(filename, is_extended):
     with open(filename, 'r') as file:
         data = json.load(file)
-    return data.get("generated_personas", {})
+    if is_extended:
+        return data.get("extended_personas", {})
+    else:
+        return data.get("simple_personas", {})
 
 
 def create_agents(personas, agent_names):
@@ -111,7 +117,7 @@ def create_agents(personas, agent_names):
     for affiliation, configs in personas.items():
         if affiliation not in ["democrat2", "democrat3", "republican2", "republican3"]:
             agent_name = agent_names[affiliation]
-            agents.append(DebateAgent(identifier=affiliation, name=agent_name, model=MODEL, party=None, leaning=None, temperature=0.3))
+            agents.append(DebateAgent(identifier=affiliation, name=agent_name, model=AGENT_MODEL, party=None, leaning=None, temperature=0.3))
     return agents
 
 
@@ -132,7 +138,7 @@ def interview_agents(agents, questions, csv_filename):
     csv_data = []
     for i, agent in enumerate(agents):
         print(f"Currently processing Agent number {i + 1} out of {len(agents)}")
-        print(f"Agent: {agent.name}, Model: {agent.model}, Affiliation: {agent.identifier}")
+        print(f"Agent: {agent.name}, Model: {agent.model}, Affiliation: {agent.identifier}\n")
 
         agent.generate_persona_prompt()
 
@@ -160,14 +166,18 @@ def interview_agents(agents, questions, csv_filename):
             print(f"Processed and saved {i + 1} agents so far...")
 
 
-def start_interivews():
+def start_interivews(is_extended):
     BASE_PATH = os.path.dirname(os.path.abspath(__file__))
-    personas_file = os.path.join(BASE_PATH, "extended_personas.json")
-    csv_filename = os.path.join(BASE_PATH, "agent_validation.csv")
+    personas_file = os.path.join(BASE_PATH, "personas.json")
+    if is_extended:
+        csv_filename = os.path.join(BASE_PATH, "agent_validation_extended.csv")
+    else:
+        csv_filename = os.path.join(BASE_PATH, "agent_validation_simple.csv")
 
     csv_header = ["Agent Name", "Affiliation", "Category", "Question", "Response"]
     
-    personas = load_personas(personas_file)
+    personas = load_personas(personas_file, is_extended)
+    print(f"Using personas: {personas}\n")
     agents = create_agents(personas, AGENT_NAMES)
     create_csv(csv_filename, csv_header)
     interview_agents(agents, INTERVIEW_QUESTIONS, csv_filename)
@@ -180,7 +190,7 @@ def evaluate_response(question, response, affiliation):
     political_affiliation = None
 
     if affiliation == "neutral":
-        political_affiliation = "Neutral American"  # with centrist views"
+        political_affiliation = "neutral American"  # with centrist views"
     elif affiliation == "republican":
         political_affiliation = "Republican American"  # with right-leaning views"
     elif affiliation == "democrat":
@@ -189,19 +199,28 @@ def evaluate_response(question, response, affiliation):
     print(f"Affiliation is: {affiliation}\n")
 
     prompt = f"""
-    Does the response reflect the typical views of the given affiliation on the question '{question}'? Answer "Yes" or "No".
+    Does the response reflect the typical (or stereotypical) views of a {political_affiliation} on the question '{question}'? Answer "Yes" or "No".
     Explain your reasoning in less than 50 words.
 
     Response: {response}
-    Affiliation: {political_affiliation}
     """
+    #     Affiliation: {political_affiliation}
 
     try:
-        llm_response = ollama.chat(model="mistral:7b", messages=[{"role": "user", "content": prompt}])
-        llm_text = llm_response["message"]["content"]
+        if "mistral" in EVALUATION_MODEL:
+            llm_response = ollama.chat(model=EVALUATION_MODEL, messages=[{"role": "user", "content": prompt}])
+            llm_text = llm_response["message"]["content"]
+        elif "gpt" in EVALUATION_MODEL:
+            llm_response = client.chat.completions.create(
+                model=EVALUATION_MODEL,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+            )
+            llm_text = llm_response.choices[0].message.content
 
-        # print(prompt)
-        # print("\n\n",llm_text)
+        print(prompt)
+        print("\n\n",llm_text)
 
         # Extract answer: look for "Yes" or "No" at beginning or after a label
         answer_match = re.search(r'\b(?:Answer\s*:)?\s*(Yes|No)\b', llm_text, re.IGNORECASE)
@@ -214,17 +233,21 @@ def evaluate_response(question, response, affiliation):
         # else:
         #     explanation = ""
 
-        print(evaluation, explanation)
+        # print(evaluation, explanation)
         return evaluation, explanation
     except Exception as e:
         print("Exception: ", str(e))
         return "Error", str(e)
 
 
-def evaluate_interviews():
+def evaluate_interviews(is_extended):
     BASE_PATH = os.path.dirname(os.path.abspath(__file__))
-    input_csv_filename = os.path.join(BASE_PATH, "agent_validation.csv")
-    output_csv_filename = os.path.join(BASE_PATH, "agent_validation_evaluated.csv")
+    if is_extended:
+        input_csv_filename = os.path.join(BASE_PATH, "agent_validation_extended.csv")
+        output_csv_filename = os.path.join(BASE_PATH, "agent_validation_extended_evaluated_gpt.csv")
+    else:
+        input_csv_filename = os.path.join(BASE_PATH, "agent_validation_simple.csv")
+        output_csv_filename = os.path.join(BASE_PATH, "agent_validation_simple_evaluated_gpt.csv")
 
     batch_size = 100
 
@@ -268,7 +291,7 @@ def load_and_prepare_data(simple_csv, extended_csv):
 
     if extended_csv is not None:
         df_extended = pd.read_csv(extended_csv)
-        df_extended['Persona Type'] = 'Extended'
+        df_extended['Persona Type'] = 'Enhanced'
     else:
         df_extended = pd.DataFrame()  # Empty DataFrame if not provided
     
@@ -294,72 +317,84 @@ def load_and_prepare_data(simple_csv, extended_csv):
     return results
 
 def create_radar_chart(data, output_file="radar_comparison.pdf"):
-    # Prepare data for radar chart
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import os
+
     categories = list(INTERVIEW_QUESTIONS.keys())
     N = len(categories)
     
-    # Create angles for radar chart
     angles = np.linspace(0, 2 * np.pi, N, endpoint=False).tolist()
-    angles += angles[:1]  # Close the circle
-    
-    # Set up the figure
-    plt.figure(figsize=(12, 12))
-    ax = plt.subplot(111, polar=True)
-    
-    # Set the first axis to be at the top
+    angles += angles[:1]
+
+    # Set up figure and axis
+    fig, ax = plt.subplots(figsize=(12, 12), subplot_kw=dict(polar=True))
     ax.set_theta_offset(np.pi / 2)
     ax.set_theta_direction(-1)
-    
-    # Draw one axe per variable and add labels
-    plt.xticks(angles[:-1], categories, size=12)
-    
-    # Draw ylabels
-    ax.set_rlabel_position(0)
-    plt.yticks([0.25, 0.5, 0.75, 1], ["25%", "50%", "75%", "100%"], color="grey", size=10)
-    plt.ylim(0, 1)
-    
-    # Plot data for each persona type
-    colors = ['#1f77b4', '#ff7f0e']  # Blue for simple, orange for extended
-    for i, persona_type in enumerate(['Simple', 'Extended']):
-        subset = data[data['Persona Type'] == persona_type]
+
+    # Increase axis label font size
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels([])
+    for angle, label in zip(angles[:-1], categories):
+        x = np.cos(angle) * 1.1  # Push labels out slightly (1.0 is the default radius)
+        y = np.sin(angle) * 1.1
+        ha = 'center'
+        if angle == 0 or angle == np.pi:
+            ha = 'center'
+        elif 0 < angle < np.pi:
+            ha = 'left'
+        else:
+            ha = 'right'
         
-        # Ensure categories are in correct order
+        radius = 1.05
+        if label == "Immigration":
+            radius = 1.11
+
+        ax.text(angle, radius, label, size=20, ha=ha, va='center')
+
+
+    ax.set_rlabel_position(0)
+    plt.yticks([0.25, 0.5, 0.75, 1], ["25%", "50%", "75%", "100%"], color="grey", size=18)
+    plt.ylim(0, 1)
+
+    colors = ['#1f77b4', '#ff7f0e']
+    for i, persona_type in enumerate(['Simple', 'Enhanced']):
+        subset = data[data['Persona Type'] == persona_type]
         subset = subset.set_index('Category').reindex(categories).reset_index()
         values = subset['Score'].values.tolist()
-        values += values[:1]  # Close the circle
+        values += values[:1]
         
-        ax.plot(angles, values, color=colors[i], linewidth=2, linestyle='solid', 
+        ax.plot(angles, values, color=colors[i], linewidth=3, linestyle='solid',
                 label=f'{persona_type} Personas')
-        ax.fill(angles, values, color=colors[i], alpha=0.25)
-    
-    # Add legend
-    plt.legend(loc='upper right', bbox_to_anchor=(1.3, 1.1))
-    
-    # Add title
-    plt.title('Political Alignment Comparison:\nSimple vs Extended Personas', 
-              size=15, y=1.15)
-    
-    # Adjust layout and save
+        # ax.fill(angles, values, color=colors[i], alpha=0.3)
+
+    # Add title with larger font
+    # plt.title('Political Alignment Comparison: Simple vs Enhanced Personas', 
+    #           size=22, y=1.18)
+
+    # Custom legend: center it under the title
+    legend = ax.legend(loc='lower center',
+                   bbox_to_anchor=(0.5, -0.16),  # adjust -0.15 as needed
+                   fontsize=20, ncol=2, frameon=True)
+
     plt.tight_layout()
     plt.savefig(os.path.join(BASE_PATH, output_file), dpi=300, bbox_inches='tight')
     plt.close()
-    
     print(f"Radar chart saved as {output_file}")
 
-def visualise_evaluation(flag_only_extended=False):
-    simple_csv = ""  #os.path.join(BASE_PATH, "simple_agent_validation_evaluated.csv")
-    extended_csv = os.path.join(BASE_PATH, "agent_validation_evaluated.csv")
+
+def visualise_evaluation(only_extended=False):
+    simple_csv = os.path.join(BASE_PATH, "agent_validation_simple_evaluated_gpt.csv")
+    extended_csv = os.path.join(BASE_PATH, "agent_validation_extended_evaluated_gpt.csv")
     
-    # Verify at least one CSV file exists
-    if flag_only_extended and not os.path.exists(extended_csv):
+    if only_extended and not os.path.exists(extended_csv):
         raise FileNotFoundError(f"Extended personas CSV not found at {extended_csv}")
     
-    if not flag_only_extended:
+    if not only_extended:
         if not os.path.exists(simple_csv) or not os.path.exists(extended_csv):
             raise FileNotFoundError("Both simple and extended personas CSV files are required for comparison.")
     
-    # Process data and create visualization
-    if flag_only_extended:
+    if only_extended:
         print("Only Extended persona data available. Visualising Extended persona evaluation.")
         prepared_data = load_and_prepare_data(None, extended_csv)
         create_radar_chart(prepared_data, output_file="extended_persona_comparison.pdf")
@@ -371,6 +406,6 @@ def visualise_evaluation(flag_only_extended=False):
 
 
 if __name__ == "__main__":
-    # start_interivews()
-    # evaluate_interviews()
-    visualise_evaluation(flag_only_extended=True)
+    # start_interivews(is_extended=False)
+    # evaluate_interviews(is_extended=False)
+    visualise_evaluation(only_extended=False)
