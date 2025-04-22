@@ -53,7 +53,7 @@ class DebateManager:
 
     def _generate_debate_prompt(self):
         prompt = f"""
-        You are participating in a political debate on the question: "{self.debate_question}". Keep your reply shorter than 50 words.
+        You are participating in a political debate on the topic "{self.debate_question}". Keep your reply shorter than 50 words.
         """
         return prompt
 

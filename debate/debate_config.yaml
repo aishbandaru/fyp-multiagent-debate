@@ -19,20 +19,24 @@ baseline_debate_topics:
   - "illegal immigration"
   - "gun violence"
   - "abortion"
-  - "climate change"
+  - "economy"
+  - "religion"
 
 baseline_debate_questions:
-- "Do immigrants take jobs from American-born workers?"
-- "Should there be stricter gun ownership laws?"
-- "Should partial birth abortions be banned to protect unborn children?"
-- "Should the city go ahead with building the manufacturing plant?"
+- "Do immigrants take jobs away from American-born workers?"
+- "Should the government enforce stricter gun ownership laws?"
+- "Should partial-birth abortions be banned to protect unborn children?"
+- "Should Congress raise taxes on the wealthy to reduce the federal budget deficit?"
+- "Should a business be able to deny service to a customer based on religius belief?"
 
 
 extra_debate_topics:
   - "racism"
   - "evolution"
   - "trade tariffs"
+  - "climate change"
 
+# - "Should the city go ahead with building the manufacturing plant?"
 
 ### for agents ###
 token_limit: 75

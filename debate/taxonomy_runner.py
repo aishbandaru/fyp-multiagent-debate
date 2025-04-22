@@ -30,35 +30,38 @@ class TaxonomyGenerator:
     def _get_taxonomy_prompt(self):
         # You are participating in a political debate on the topic "{debate_topic}" for the debate motion: "{debate_motion}".
         taxonomy_prompt = f"""
-        You are participating in a political debate on the question: "{self.debate_question}". Your goal is to work with other agents to construct a taxonomy for the political debate using a tree structure where:
-        1. The root node represents the overarching debate topic.
-        2. The first level consists of major discussion points for the debate motion.
-        3. The second level breaks down each major discussion point into subcategories.
-        4. Additional levels refine arguments further if needed.
-        Output the taxonomy as a dictionary like in the example. Include {self.num_discussion_points} discussion points.
-        Provide an explanation of your categorisation in less than 50 words.
+        You are an expert in structuring political debates. Generate a taxonomy for the debate topic '{self.debate_question}' in JSON format. Collaborate with the other experts. This taxonomy includes:
+        1. A root node for the debate topic
+        2. A first level with {self.num_discussion_points} major discussion points for the topics
+        3. A second level with arguments for each discussion point.
+        4. A third level which refines each argument further.
+
+        Explain your taxonomy in less than 50 words.
         """ \
         """
         \nUse the format in the example below:
         Taxonomy = {
             "Debate Topic": {
                 "Discussion Point 1": {
-                    "Subcategory A": {
-                        "Subsubcategory 1": {},
-                        "Subsubcategory 2": {}
+                    "Argument A": {
+                        "Subargument 1": {},
+                        "Subargument 2": {}
                     },
-                    "Subcategory B": {}
+                    "Argument B": {
+                        "Subargument 3": {},
+                        "Subargument 4": {}
+                    }
                 },
                 "Discussion Point 2": {
-                    "Subcategory C": {
-                        "Subsubcategory X": {},
-                        "Subsubcategory Y": {}
+                    "Argument C": {
+                        "Subargument X": {},
+                        "Subargument Y": {}
                     }
                 }
             }
         }
 
-        Explanation: The taxonomy organizes the debate into two primary discussion points: Discussion Point 1 and Discussion Point 2. Each points contains key arguments, which are further divided into supporting points or counterarguments. This hierarchical structure helps in understanding the debate by breaking down complex arguments into smaller, manageable parts.
+        Explanation: The taxonomy organises the debate into two primary discussion points: Discussion Point 1 and Discussion Point 2. Each points contains key arguments, which are further divided into supporting points or counterarguments.
         """
         return taxonomy_prompt
 

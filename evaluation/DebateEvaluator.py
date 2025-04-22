@@ -287,15 +287,16 @@ class DebateEvaluator:
         # attitude_scale_desc = "You should rate on a scale from 1 (strongly disagree) to 7 (strongly agree)"
 
         agreement_statements = {
-            "abortion": "Partial birth abortions should be banned to protect unborn children.",
-            "illegal immigration": "Immigrants take jobs from American-born workers",
-            "gun violence": "There should be stricter gun ownership laws",
-            "climate change": "The city should go ahead with go ahead with building the manufacturing plant"
+            "illegal immigration": "Immigrants take jobs from American-born workers.",
+            "gun violence": "There should be stricter gun ownership laws.",
+            "abortion": "Partial-birth abortions should be banned to protect unborn children.",
+            "economy": "Congress should raise taxes on the wealthy to reduce the federal budget deficit.",
+            "religion": "Businesses should be allowed to deny service based on religious beliefs."
         }
 
         # Using prompting technique from paper: https://arxiv.org/pdf/2411.15594, pg7, Section 2.1.1, Fig. 4
         attiude_judge_prompt = (
-            f"Evaluate the attitude of the response from a political debate. Rate each response on the following dimension: Agreement with the statement '{agreement_statements[debate_topic]}'. {attitude_scale_desc}. Return ONLY the NUMERIC SCORE."
+            f"Evaluate the attitude of the response from a political debate. Rate each response on one dimension: Agreement with the statement '{agreement_statements[debate_topic]}'. {attitude_scale_desc}. Return ONLY the NUMERIC SCORE."
             f"\nDebate Response: {response}"
             f"\nAttitude Score:"
         )
