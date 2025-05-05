@@ -16,84 +16,87 @@ class TaxonomyGenerator:
     def __init__(self, agents, debate_topic, debate_question, taxonomy_rounds, taxonomy_iterations):
         self.debate_topic = debate_topic
         self.debate_question = debate_question
+        self.num_discussion_points = 4  # number of main key points to generate per debate question
         self.taxonomy_prompt = self._get_taxonomy_prompt()
 
         self.agents = agents
         self.taxonomy_rounds = taxonomy_rounds
         self.taxonomy_iterations = taxonomy_iterations
-        self.num_discussion_points = 4  # number of main key points to generate per debate question
 
         self.ordered_conversation_history = []  # [{"agent: response"}, ...]
         self.conversation_for_taxonomy = []  # [{"agent": agent, "response": response}, ...]
 
 
     def _get_taxonomy_prompt(self):
-        # You are participating in a political debate on the topic "{debate_topic}" for the debate motion: "{debate_motion}".
+        # You are participating in a political debate on the topic "{debate_topic}" for the debate motion: "{debate_motion}".  Collaborate with the other experts.
         taxonomy_prompt = f"""
         You are an expert in structuring political debates. Generate a taxonomy for the debate topic '{self.debate_question}' in JSON format. Collaborate with the other experts. This taxonomy includes:
         1. A root node for the debate topic
-        2. A first level with {self.num_discussion_points} major discussion points for the topics
-        3. A second level with arguments for each discussion point.
-        4. A third level which refines each argument further.
+        2. A first level with at most {self.num_discussion_points} arguments.
+        3. A second level with at most 2 subpoints per argument.
+        4. A third level with at most 3 details per subpoint.
+        5. No further levels.
 
-        Explain your taxonomy in less than 50 words.
+        It is used for a political debate generation system. Explain your taxonomy in less than 50 words.
         """ \
         """
-        \nUse the format in the example below:
-        Taxonomy = {
-            "Debate Topic": {
-                "Discussion Point 1": {
-                    "Argument A": {
-                        "Subargument 1": {},
-                        "Subargument 2": {}
-                    },
-                    "Argument B": {
-                        "Subargument 3": {},
-                        "Subargument 4": {}
+        \nUse the following format, using 10 words or less for each item:
+        {
+            "topic": "Topic question",
+            "arguments": [
+                {
+                "point": "First main argument",
+                "subpoints": [
+                    {
+                    "point": "Subargument A",
+                    "details": [
+                        "Supporting detail 1",
+                        "Supporting detail 2",
+                        "Supporting detail 3"
+                    ]
                     }
+                ]
                 },
-                "Discussion Point 2": {
-                    "Argument C": {
-                        "Subargument X": {},
-                        "Subargument Y": {}
-                    }
-                }
+                ... (3 more points)
+            ]
             }
-        }
-
-        Explanation: The taxonomy organises the debate into two primary discussion points: Discussion Point 1 and Discussion Point 2. Each points contains key arguments, which are further divided into supporting points or counterarguments.
         """
         return taxonomy_prompt
 
 
     def start(self):
-        # for _ in range(self.taxonomy_iterations):  # TODO: save debate data (transcript) + final taxonomy; clear data before every run 
-        self._start_taxonomy_debate()
+        for _ in range(self.taxonomy_iterations):  # TODO: save debate data (transcript) + final taxonomy; clear data before every run 
+            self._start_taxonomy_debate()
 
-        taxonomy_str = None
+            taxonomy_str = None
 
-        # iterate in reverse to find the last entry from the neutral agent to use as the taxonomy
+            # iterate in reverse to find the last entry from the neutral agent to use as the taxonomy
+            print(f"\n[DEBUG] Total entries in conversation_for_taxonomy: {len(self.conversation_for_taxonomy)}")
 
-        # self.conversation_for_taxonomy.reverse()  # This will modify the list in place
-        # print("TESTING SOMETHING", self.conversation_for_taxonomy[0]["agent"])
+            for entry in reversed(self.conversation_for_taxonomy):
+                if entry.get("agent") == "neutral":
+                    response = entry.get("response", "").strip()
+                    if "```json" in response:
+                        # Start of JSON block
+                        start_idx = response.find("```json") + len("```json")
+                        # End of JSON block (looking for the first closing ``` after the JSON block)
+                        end_idx = response.find("```", start_idx)
 
-        for entry in reversed(self.conversation_for_taxonomy):
-            if entry["agent"] == "neutral":
-                if "Taxonomy =" in entry["response"]:
-                    taxonomy_str = entry["response"]
-                    break
+                        if start_idx != -1 and end_idx != -1:
+                            # Extract the JSON content
+                            taxonomy_str = response[start_idx:end_idx].strip()
+                            break
 
-        # for entry in reversed(self.conversation_for_taxonomy):
-        #     # get the last agreed taxonomy
-        #     if "Taxonomy =" in entry["response"]:
-        #         taxonomy_str = entry["response"]
-        #         break
+            if not taxonomy_str:
+                print("[ERROR] No taxonomy response found from neutral agent.")
 
-        taxonomy = self._parse_taxonomy(taxonomy_str)
+            if taxonomy_str:
+                taxonomy = self._parse_taxonomy(taxonomy_str)
+                self.save_taxonomy(taxonomy)
+            else:
+                print("[ERROR] Could not extract valid taxonomy.")
 
-        self.save_taxonomy(taxonomy)
-
-        return taxonomy
+            self._clear_data()
 
 
     def _clear_data(self):
@@ -102,16 +105,47 @@ class TaxonomyGenerator:
 
 
     def _parse_taxonomy(self, taxonomy_str):
-        match = re.search(r"Taxonomy = (\{.*\})", taxonomy_str, re.DOTALL)
+        # Extract JSON code block content
+        match = re.search(r"```json\s*(\{.*?\})\s*```", taxonomy_str, re.DOTALL)
+
+        if not match:
+            # Fallback to matching JSON in the plain string, with or without prefix
+            match = re.search(r"(?:Taxonomy\s*=\s*)?(\{.*\})", taxonomy_str, re.DOTALL)
 
         if match:
-            taxonomy_str = match.group(1)  # extract only dictionary part
-            taxonomy_dict = ast.literal_eval(taxonomy_str)  # convert string to dictionary
-            print(taxonomy_dict)
+            json_str = match.group(1)
 
-            return taxonomy_dict
+            # Custom function to fix subarguments: ensure they are either strings or empty objects
+            def fix_subarguments(data):
+                if isinstance(data, dict):
+                    # For each key-value pair in the dictionary
+                    for key, value in data.items():
+                        if isinstance(value, str):
+                            # If the value is a string, leave it as it is
+                            continue
+                        elif isinstance(value, dict) and not value:
+                            # If the value is an empty dictionary, keep it as it is
+                            continue
+                        else:
+                            # If it's neither, recursively process it
+                            fix_subarguments(value)
+                return data
+
+            try:
+                print("\nTaxonomy String before parsing:", taxonomy_str)
+                taxonomy_dict = json.loads(json_str)
+
+                # Fix subarguments after parsing the JSON
+                taxonomy_dict = fix_subarguments(taxonomy_dict)
+                print("Parsed taxonomy successfully.")
+                return taxonomy_dict
+
+            except Exception as e:
+                print("Error parsing taxonomy JSON:", e)
+                raise
         else:
-            print("No taxonomy found.")
+            print("No valid taxonomy JSON found.")
+            return None
 
 
     def _start_taxonomy_debate(self):
@@ -120,10 +154,10 @@ class TaxonomyGenerator:
 
         for _ in range(1, self.taxonomy_rounds - 1): 
             for agent in self.agents:
-                self._debate_round(agent, "Update the taxonomy based on previous contributions by other agents. You may refine, merge, or extend existing points.")  # Complete your next reply based on the taxonomy so far
+                self._debate_round(agent, "Update the taxonomy based on previous contributions. You may refine, merge, or extend existing points.")  # Complete your next reply based on the taxonomy so far
 
         for agent in self.agents:
-            self._debate_round(agent, "Present your final taxonomy of the debate topic.")
+            self._debate_round(agent, "Present your final taxonomy of the debate topic based on previous contributions.")
 
 
     def _debate_round(self, agent, debate_phase_prompt=None):
@@ -142,11 +176,13 @@ class TaxonomyGenerator:
 
     def save_taxonomy(self, taxonomy):
         topic = self.debate_topic.replace(" ", "_").lower()
-        save_folder = f"data/taxonomy/{topic}"
+        save_folder = f"data/new_taxonomy/multiagent/{topic}/temp_{agent.temperature}"  # NOTE: Change save_folder depending on neutral_only vs multiagent generation
         os.makedirs(save_folder, exist_ok=True)
 
         timestamp = datetime.now().strftime("%d%m%Y_%H%M%S")
-        filename = f"{save_folder}/{topic}_{timestamp}.json"
+        # filename = f"{save_folder}/{topic}_{timestamp}.json"
+
+        filename = f"data/new_taxonomy/multiagent/{topic}/temp_{agent.temperature}_best.json" 
 
         print(type(taxonomy))
 
@@ -170,38 +206,46 @@ if __name__ == "__main__":
         topics = config["baseline_debate_topics"]
     
     debate_questions = config["baseline_debate_questions"]
-
-    print(f"Starting taxonomy creation for topics: {topics}\n")
     start_time = datetime.now()
 
-    # create agents
-    debate_agents = []
-    for agent_cfg in config["debate_agents"]:
-        agent = DebateAgent(
-            identifier=agent_cfg["identifier"],
-            name=agent_cfg["name"],
-            party=agent_cfg["party"],
-            leaning=agent_cfg["leaning"],
-            model=agent_cfg["model"],
-            temperature=config["temperature"]
-        )
-        debate_agents.append(agent)
-    
-    # generate agent personas and verify them
-    for agent in debate_agents:
-        agent.generate_persona_prompt(use_extended_persona=True)
-        print(agent.persona_prompt + "\n")
 
-    # generate taxonomy
-    for topic, question in zip(topics, debate_questions):
-        taxonomy_gen = TaxonomyGenerator(
-            agents=debate_agents, 
-            debate_topic=topic, 
-            debate_question=question, 
-            taxonomy_rounds=config["taxonomy_rounds"], 
-            taxonomy_iterations=config["taxonomy_iterations"]
-        )
-        taxonomy = taxonomy_gen.start()
+    for temperature in [0.2, 0.4, 0.6, 0.8, 1.0]:
+        print(f"Starting taxonomy creation for topics: {topics} with agent temperature={temperature}\n")
+
+        # create agents
+        debate_agents = []
+        for agent_cfg in config["debate_agents"]:
+            agent = DebateAgent(
+                identifier=agent_cfg["identifier"],
+                name=agent_cfg["name"],
+                party=agent_cfg["party"],
+                leaning=agent_cfg["leaning"],
+                model=agent_cfg["model"],
+                temperature=temperature
+            )
+            debate_agents.append(agent)
+        
+        # generate agent personas and verify them
+        print("\n" + "="*60)
+        print(f"Agent personas")
+        print("="*60 + "\n")
+        for agent in debate_agents:
+            agent.generate_persona_prompt(use_extended_persona=True)
+            print(agent.persona_prompt + "\n")
+
+        # generate taxonomy
+        for topic, question in zip(topics, debate_questions):
+            print("\n" + "="*120)
+            print(f"Starting debate for {topic}: {question}")
+            print("="*120 + "\n")
+            taxonomy_gen = TaxonomyGenerator(
+                agents=debate_agents, 
+                debate_topic=topic, 
+                debate_question=question, 
+                taxonomy_rounds=config["taxonomy_rounds"], 
+                taxonomy_iterations=config["taxonomy_iterations"]
+            )
+            taxonomy_gen.start()
 
     print(f"All taxonomy generation has completed for topics: {topics}")
     print(f"That took {(datetime.now() - start_time).total_seconds():.2f} seconds")

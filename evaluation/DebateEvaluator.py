@@ -7,10 +7,23 @@ import ollama
 import numpy as np
 import pandas as pd
 import multiprocessing
-from multiprocessing import Manager, Pool
-import matplotlib.pyplot as plt
-from sklearn.linear_model import LinearRegression
 from openai import OpenAI
+import matplotlib.pyplot as plt
+from wordcloud import WordCloud
+import google.generativeai as genai
+from multiprocessing import Manager, Pool
+from sklearn.linear_model import LinearRegression
+from google.generativeai.types import GenerationConfig
+
+from sklearn.metrics.pairwise import cosine_similarity
+from collections import Counter
+from nltk.corpus import stopwords
+from scipy import stats
+from collections import defaultdict
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+
+genai.configure(api_key=os.environ["GOOGLE_CLOUD_API_KEY"])
 
 client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
@@ -24,7 +37,7 @@ class DebateEvaluator:
         self.model = model
         self.num_model_calls = 2
         self.evaluate_again = evaluate_again
-        self.metrics = metrics if metrics is not None else ["attitude", "final_synthesis", "repetition"]
+        self.metrics = metrics if metrics is not None else ["attitude", "final_synthesis", "wordcloud"]
 
         self.debate_group = debate_group.split("_")
         self.debate_structures = debate_structures
@@ -45,6 +58,10 @@ class DebateEvaluator:
             'democrat3': 'skyblue',
         }
 
+        import nltk
+        nltk.download('stopwords')
+        self.stop_words = set(stopwords.words('english'))
+
 
     def _load_transcript(self, filename):
         self.transcript_filename = filename
@@ -60,29 +77,270 @@ class DebateEvaluator:
             all_attitude_scores = {}
             self.structure_topic_path = structure_topic
 
+            # Generate WordClouds for each debate structure
+            if "wordcloud" in self.metrics:
+                cosine_similarities = self.compute_cosine_similarity(structure_topic, transcript_list, base_transcripts_path)
+                # Compute average cosine similarity for each structure
+                avg_similarities = self.average_cosine_similarity(cosine_similarities)
+                print(avg_similarities, "\n")
+
+                # Perform statistical significance testing
+                anova_result, levene_result = self.perform_statistical_testing(avg_similarities)
+
+                print(anova_result, levene_result, "\n")
+
+                # self.generate_word_frequency_graph(structure_topic, transcript_list, base_transcripts_path)
+                # self.generate_wordclouds(structure_topic, transcript_list, base_transcripts_path)
+                # self.compare_wordclouds(structure_topic, transcript_list, base_transcripts_path)
+
             if "attitude" in self.metrics:
                 for agent in self.debate_group:
                     all_attitude_scores[agent] = [[] for _ in range(self.num_iterations)]
 
-            # loop through each transcript to get attitude scores
-            for debate, transcript in enumerate(transcript_list):
-                transcript_path = os.path.join(base_transcripts_path, structure_topic, transcript)
-                result = self.evaluate_transcript(transcript_path)  # evaluate transcript
+                # loop through each transcript to get attitude scores
+                for debate, transcript in enumerate(transcript_list):
+                    transcript_path = os.path.join(base_transcripts_path, structure_topic, transcript)
+                    result = self.evaluate_transcript(transcript_path)  # evaluate transcript
 
-                print("Evaluation scores: ", result)
+                    print("Evaluation scores: ", result)
 
-                if "attitude" in self.metrics:
-                    scores = result.get("attitude", None)
-                    for agent in self.debate_group:
-                        all_attitude_scores[agent][debate] = scores[agent]
+                    if "attitude" in self.metrics:
+                        scores = result.get("attitude", None)
+                        for agent in self.debate_group:
+                            all_attitude_scores[agent][debate] = scores[agent]
 
-            if "attitude" in self.metrics:
+                # if "attitude" in self.metrics:
                 self._compute_attitude_metrics(all_attitude_scores)
                 # self._generate_summary_metrics(all_attitude_scores)
                 topic_name = structure_topic.split("/")[-1]
                 self._generate_attitude_box_plot(all_attitude_scores, topic_name)
         
         print("="*60 + "\n")
+
+
+    def compare_wordclouds(self, structure_topic, transcript_list, base_transcripts_path):
+        """Compare word clouds for different debate structures and topics using cosine similarity."""
+
+        term_frequencies = {}
+
+        # Generate term frequencies for each word cloud
+        for debate in transcript_list:  # Loop over each transcript in the list
+            transcript_path = os.path.join(base_transcripts_path, structure_topic, debate)
+            transcript = self._load_transcript(transcript_path)
+
+            # Collect text from all rounds for each agent in the debate group
+            full_text = ""
+            for agent in self.debate_group:
+                for round_num in range(self.num_debate_rounds):
+                    round_label = f"round_{round_num}"
+                    if round_label in transcript.get(agent, {}):
+                        full_text += transcript[agent].get(round_label, "") + " "
+
+            # Clean the text for analysis
+            clean_text = self.clean_text(full_text)
+
+            # Compute term frequencies for the text and store with debate name as key
+            term_frequencies[debate] = Counter(clean_text.split())
+
+        # Compare term frequencies using cosine similarity
+        debate_keys = list(term_frequencies.keys())
+        num_debates = len(debate_keys)
+        similarity_matrix = np.zeros((num_debates, num_debates))
+
+        # Calculate cosine similarity between each pair of word clouds (debates)
+        for i in range(num_debates):
+            for j in range(i + 1, num_debates):
+                # Get term frequencies as vectors
+                terms_i = term_frequencies[debate_keys[i]]
+                terms_j = term_frequencies[debate_keys[j]]
+
+                # Union of all words to compare
+                all_terms = list(set(terms_i.keys()).union(set(terms_j.keys())))
+                vector_i = [terms_i.get(term, 0) for term in all_terms]
+                vector_j = [terms_j.get(term, 0) for term in all_terms]
+
+                # Compute cosine similarity
+                similarity = cosine_similarity([vector_i], [vector_j])[0][0]
+                similarity_matrix[i, j] = similarity
+                similarity_matrix[j, i] = similarity
+
+        # Print the similarity matrix
+        print("Cosine Similarity Matrix:")
+        print(similarity_matrix)
+
+        # Optionally: Visualize or plot the similarity matrix (use a heatmap)
+        # Use seaborn or matplotlib for a more visual representation
+        # import seaborn as sns
+        # sns.heatmap(similarity_matrix, annot=True, cmap="YlGnBu", xticklabels=debate_keys, yticklabels=debate_keys)
+
+
+    def generate_word_frequency_graph(self, structure_topic, transcript_list, base_transcripts_path):
+        """Generate a word frequency bar graph for the entire topic from all transcripts."""
+        
+        full_text = ""  # Initialize an empty string to hold all text for the topic
+
+        # Loop through each debate in the transcript list
+        for debate in transcript_list:
+            transcript_path = os.path.join(base_transcripts_path, structure_topic, debate)
+            transcript = self._load_transcript(transcript_path)
+
+            # Collect text from each round for each agent in the debate group
+            for agent in self.debate_group:
+                for round_num in range(self.num_debate_rounds):
+                    round_label = f"round_{round_num}"
+                    if round_label in transcript.get(agent, {}):
+                        full_text += transcript[agent].get(round_label, "") + " "
+        
+        # Clean the full text for word frequency analysis
+        full_text = self.clean_text(full_text)
+
+        # Split text into words and calculate frequency
+        word_list = full_text.split()
+        filtered_word_list = [word for word in word_list if word not in self.stop_words]
+        word_freq = Counter(filtered_word_list)
+
+        # # Split text into words and calculate frequency
+        # word_list = full_text.split()
+        # word_freq = Counter(word_list)
+
+        # Sort the words by frequency
+        sorted_word_freq = dict(word_freq.most_common(20))  # Show top 20 most frequent words
+        
+        # Generate a bar graph for word frequencies
+        self._generate_bar_graph(sorted_word_freq, structure_topic)
+
+    def _generate_bar_graph(self, word_freq, structure_topic):
+        """Generate and save a bar graph of word frequencies."""
+        words = list(word_freq.keys())
+        frequencies = list(word_freq.values())
+
+        # Create a bar chart
+        plt.figure(figsize=(10, 6))
+        plt.barh(words, frequencies, color='skyblue')
+        plt.xlabel('Frequency')
+        plt.ylabel('Words')
+        plt.title(f'Word Frequency Graph for {structure_topic}')
+        plt.tight_layout()
+
+        # Save the graph as a PNG file
+        save_dir = self._get_relative_path(f"{'_'.join(self.debate_group)}", "data/word_frequencies")
+        os.makedirs(save_dir, exist_ok=True)
+
+        graph_filename = f"{structure_topic.split('/')[0]}_{structure_topic.split('/')[1]}_word_frequency.png"
+        graph_path = os.path.join(save_dir, graph_filename)
+        plt.savefig(graph_path)
+        plt.close()
+        print(f"Saved word frequency graph: {graph_path}")
+
+
+
+    def generate_wordclouds(self, structure_topic, transcript_list, base_transcripts_path):
+        """Generate a single word cloud for the entire topic from all transcripts."""
+        
+        full_text = ""  # Initialize an empty string to hold all text for the topic
+
+        # Loop through each debate in the transcript list
+        for debate in transcript_list:
+            transcript_path = os.path.join(base_transcripts_path, structure_topic, debate)
+            transcript = self._load_transcript(transcript_path)
+
+            # Collect text from each round for each agent in the debate group
+            for agent in self.debate_group:
+                for round_num in range(self.num_debate_rounds):
+                    round_label = f"round_{round_num}"
+                    if round_label in transcript.get(agent, {}):
+                        full_text += transcript[agent].get(round_label, "") + " "
+        
+        # Clean the full text for word cloud generation
+        full_text = self.clean_text(full_text)
+
+        # Generate the word cloud for the entire topic
+        wordcloud = WordCloud(width=800, height=400, background_color="white").generate(full_text)
+
+        # Save the word cloud image
+        save_dir = self._get_relative_path(f"{'_'.join(self.debate_group)}", "data/wordclouds")
+        os.makedirs(save_dir, exist_ok=True)
+
+        wordcloud_filename = f"{structure_topic.split('/')[0]}_{structure_topic.split('/')[1]}_wordcloud.pdf"
+        wordcloud_path = os.path.join(save_dir, wordcloud_filename)
+        wordcloud.to_file(wordcloud_path)
+        print(f"Saved wordcloud: {wordcloud_path}")
+
+
+    def clean_text(self, text):
+        """Clean and process text for word cloud."""
+        text = text.lower()  # Convert to lowercase
+        text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
+        # Additional stopword filtering can be added here
+        return text
+
+
+    def compute_cosine_similarity(self, structure_topic, transcript_list, base_transcripts_path):
+        """Compute the cosine similarity for each debate in each structure."""
+        topic_cosine_similarities = defaultdict(list)  # To store cosine similarities per topic for each structure
+        
+        # Loop through each structure
+        for structure in ['non_taxonomic', 'taxonomic_full_tree', 'taxonomic_traversal']:
+            full_texts = []  # Store the full text for each debate in this structure
+            
+            # Loop through each debate in the structure's list
+            for debate in transcript_list:
+                transcript_path = os.path.join(base_transcripts_path, structure_topic, debate)
+                transcript = self._load_transcript(transcript_path)
+                full_text = ""
+                
+                # Collect text from each round for each agent in the debate group
+                for agent in self.debate_group:
+                    for round_num in range(self.num_debate_rounds):
+                        round_label = f"round_{round_num}"
+                        if round_label in transcript.get(agent, {}):
+                            full_text += transcript[agent].get(round_label, "") + " "
+                
+                # Clean the full text and append it to the list
+                full_text = self.clean_text(full_text)
+                full_texts.append(full_text)
+            
+            # Calculate the cosine similarity between each pair of debates in the structure
+            cosine_similarities = self.calculate_cosine_similarities(full_texts)
+            topic_cosine_similarities[structure] = cosine_similarities
+        
+        return topic_cosine_similarities
+    
+    def calculate_cosine_similarities(self, texts):
+        """Calculate cosine similarities between all pairs of texts in the list."""
+        vectorizer = TfidfVectorizer(stop_words='english')
+        tfidf_matrix = vectorizer.fit_transform(texts)
+        
+        # Compute cosine similarity matrix
+        cosine_sim_matrix = cosine_similarity(tfidf_matrix)
+        
+        # We only need the upper triangular part excluding the diagonal
+        num_texts = len(texts)
+        similarities = []
+        for i in range(num_texts):
+            for j in range(i + 1, num_texts):
+                similarities.append(cosine_sim_matrix[i, j])
+        
+        # Return the list of cosine similarities
+        return similarities
+    
+    def average_cosine_similarity(self, cosine_similarities):
+        """Calculate the average cosine similarity for each structure."""
+        avg_similarities = {structure: np.mean(similarities) for structure, similarities in cosine_similarities.items()}
+        return avg_similarities
+
+    def perform_statistical_testing(self, avg_similarities):
+        """Perform statistical significance testing (ANOVA and Levene's test)."""
+        # Perform ANOVA to check if the means of cosine similarities are significantly different across structures
+        anova_result = stats.f_oneway(*avg_similarities.values())
+        
+        # Perform Levene's test to check if variances are equal across structures
+        levene_result = stats.levene(*avg_similarities.values())
+        
+        print(f"ANOVA result: F-statistic = {anova_result.statistic}, p-value = {anova_result.pvalue}")
+        print(f"Levene's test result: Statistic = {levene_result.statistic}, p-value = {levene_result.pvalue}")
+        
+        return anova_result, levene_result
 
 
     def _compute_attitude_metrics(self, all_attitude_scores):
@@ -256,22 +514,34 @@ class DebateEvaluator:
             prompt = self._generate_attitude_judge_prompt(response, debate_topic)
             try:
                 if (self.model != "gpt") and ("gemini" not in self.model):
-                    result = ollama.generate(options={"temperature":0.01}, model=self.model, prompt=prompt)
+                    result = ollama.generate(options={"temperature":0}, model=self.model, prompt=prompt)
                 elif self.model == "gpt":
                     completion = client.chat.completions.create(
                         model="gpt-4o-mini",
-                        store=True,
+                        # store=True,
                         messages=[
                             {"role": "user", "content": prompt}
                         ],
+                        temperature=0
                     )
                     result = completion.choices[0].message.content
+                elif self.model == "gemini":
+                    model = genai.GenerativeModel("gemini-2.0-flash-lite")
+                    generation_config = GenerationConfig(
+                        temperature=0,
+                        max_output_tokens=1024,
+                    )
+                    response = model.generate_content(
+                        prompt,
+                        generation_config=generation_config
+                    )
+                    result = response.text
 
                 score = self._parse_score(result)
                 if score is not None:
                     scores.append(score)
                 else:
-                    raise ValueError(f"Score cannot be None. This was the debate response: {response}\nPlease check the transcript file.")
+                    raise ValueError(f"Score cannot be None. This was the debate response: {result}\nPlease check the transcript file.")
             except Exception as e:
                 print(f"Error with model response: {e}")
 
@@ -305,7 +575,7 @@ class DebateEvaluator:
 
     def _parse_score(self, result):
         try:
-            if self.model == "gpt":
+            if self.model in ["gpt", "gemini"]:
                 digit = re.findall(r'\d', result.strip())
             else:
                 digit = re.findall(r'\d', result["response"].strip())
@@ -381,15 +651,15 @@ class DebateEvaluator:
             max_vals = np.max(scores_array, axis=0)
             color = self.color_mapping[agent]
             
-            for i, turn in enumerate(turns):
-                plt.plot([turn, turn], [q1[i], q3[i]], 
-                        color=color, linewidth=2, alpha=0.7)
-                plt.plot([turn-0.1, turn+0.1], [q1[i], q1[i]], 
-                        color=color, linewidth=2, alpha=0.7)
-                plt.plot([turn-0.1, turn+0.1], [q3[i], q3[i]], 
-                        color=color, linewidth=2, alpha=0.7)
-                plt.scatter(turn, min_vals[i], color=color, marker='x', s=50, zorder=3)
-                plt.scatter(turn, max_vals[i], color=color, marker='x', s=50, zorder=3)
+            # for i, turn in enumerate(turns):
+                # plt.plot([turn, turn], [q1[i], q3[i]], 
+                #         color=color, linewidth=2, alpha=0.7)
+                # plt.plot([turn-0.1, turn+0.1], [q1[i], q1[i]], 
+                #         color=color, linewidth=2, alpha=0.7)
+                # plt.plot([turn-0.1, turn+0.1], [q3[i], q3[i]], 
+                #         color=color, linewidth=2, alpha=0.7)
+                # plt.scatter(turn, min_vals[i], color=color, marker='x', s=50, zorder=3)
+                # plt.scatter(turn, max_vals[i], color=color, marker='x', s=50, zorder=3)
 
         # Plot mean lines
         mean_lines = []
@@ -436,9 +706,14 @@ class DebateEvaluator:
             "illegal_immigration": "Do immigrants take jobs from American-born workers?",
             "gun_violence": "Should there be stricter gun ownership laws?",
             "abortion": "Should partial birth abortions be banned to protect unborn children?",
-            "climate_change": "Should the city go ahead with building the manufacturing plant?"
+            "economy": "Should Congress raise taxes on the wealthy to reduce the federal budget deficit?"
         }
-        plt.title(f"Attitude Shifts: {debate_question_dict.get(topic_name, topic_name)}", 
+        debate_structures = {
+            "taxonomic_full_tree": "Full Taxonomy Tree",
+            "taxonomic_traversal": "Taxonomy Traversal",
+            "non_taxonomic": "No Taxonomy"
+        }
+        plt.title(f"{debate_structures[self.structure_topic_path.split('/')[0]]}: {debate_question_dict.get(topic_name, topic_name)}", 
                 fontsize=12, pad=15)
         
         plt.grid(True, alpha=0.3)

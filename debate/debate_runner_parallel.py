@@ -13,11 +13,12 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from agents.DebateAgent import DebateAgent
 from debate_runner import DebateManager, load_latest_taxonomy
 
+
 def run_single_debate(topic, question, config, debate_structures, debate_group):
     try:
-        taxonomy = load_latest_taxonomy(topic)
+        taxonomy = load_latest_taxonomy(topic, taxonomy_gen_type="multiagent")
 
-        # Create agents
+        # create agents
         group_identifiers = debate_group.split("_")
         agents = []
         for agent_cfg in config["debate_agents"]:
@@ -54,12 +55,12 @@ def run_single_debate(topic, question, config, debate_structures, debate_group):
 if __name__ == "__main__":
     multiprocessing.set_start_method("spawn", force=True)
 
-    # Load debate config
+    # load debate config
     config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "debate_config.yaml")
     with open(config_path, "r") as file:
         config = yaml.safe_load(file)
 
-    # Get topics to debate
+    # get topics to debate
     if len(sys.argv) > 1:
         topics = sys.argv[1:]
     else:
@@ -73,7 +74,7 @@ if __name__ == "__main__":
     print(f"Running parallel debates for topics: {topics}\n")
     print("Selected debate")
 
-    # Launch parallel debates
+    # launch parallel debates
     # for topic, question in zip(topics, debate_questions):
     #     run_single_debate(topic, question, config, debate_structures, debate_group)
     processes = []

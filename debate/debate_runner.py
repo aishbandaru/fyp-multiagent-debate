@@ -146,7 +146,7 @@ class DebateManager:
         taxonomy_str = self._format_taxonomy_for_prompt()
 
         print("\n" + "=" * 60)
-        print(f"\nFormatted Taxonomy: {taxonomy_str}\n")
+        print(f"\n{taxonomy_str}\n")
         print("=" * 60 + "\n")
 
         for agent in self.agents:
@@ -167,21 +167,27 @@ class DebateManager:
 
 
     def _format_taxonomy_for_prompt(self):
-        """Convert taxonomy to a clean prompt-friendly format"""
+        """Convert JSON-formatted taxonomy to a clean prompt-friendly format"""
         if not self.taxonomy:
             return ""
         
-        def format_level(data, level=0):
-            items = []
-            for key, value in data.items():
-                items.append("  " * level + f"- {key}")
-                if value:
-                    items.extend(format_level(value, level + 1))
-            return items
+        def format_arguments(arguments, level=1):
+            lines = []
+            indent = "  " * level
+            for arg in arguments:
+                lines.append(f"{indent}- {arg['point']}")
+                subpoints = arg.get("subpoints", [])
+                for sub in subpoints:
+                    lines.append(f"{indent}  - {sub['point']}")
+                    details = sub.get("details", [])
+                    for detail in details:
+                        lines.append(f"{indent}    - {detail}")
+            return lines
+
+        topic = self.taxonomy.get("topic", "Unknown Topic")
+        arguments = self.taxonomy.get("arguments", [])
         
-        # get first level of taxonomy (main question)
-        main_question, taxonomy_tree = next(iter(self.taxonomy.items()))
-        formatted = [f"Taxonomy for: {main_question}"] + format_level(taxonomy_tree)
+        formatted = [f"Taxonomy for: {topic}"] + format_arguments(arguments)
         return "\n".join(formatted)
 
 
@@ -214,38 +220,33 @@ class DebateManager:
 
     def _get_taxonomy_traversal_points(self, limit_top_n=None):
         """Return structured discussion points from taxonomy as formatted strings.
-        
+
         Args:
             limit_top_n: Number of top-level discussion points to return (None for all)
-        
+
         Returns:
             List of formatted discussion point strings with their subtrees
         """
         if not self.taxonomy:
             return []
 
-        def format_subtree(data, level=0):
-            items = []
-            for key, value in data.items():
-                items.append("  " * level + f"- {key}")
-                if value:
-                    items.extend(format_subtree(value, level + 1))
-            return items
+        arguments = self.taxonomy.get("arguments", [])
+        if limit_top_n is not None:
+            arguments = arguments[:limit_top_n]
 
-        # get the taxonomy tree (skip main question)
-        _, taxonomy_tree = next(iter(self.taxonomy.items()))
-        
-        # get top-level discussion points
-        discussion_items = list(taxonomy_tree.items())
-        if limit_top_n:
-            discussion_items = discussion_items[:limit_top_n]
-        
-        # format each discussion point with its subtree
-        formatted_points = []
-        for point, arguments in discussion_items:
-            point_tree = {point: arguments}
-            formatted_points.append("\n".join(format_subtree(point_tree)))
-        
+        def format_argument(arg, level=0):
+            lines = []
+            indent = "  " * level
+            lines.append(f"{indent}- {arg['point']}")
+            subpoints = arg.get("subpoints", [])
+            for sub in subpoints:
+                lines.append(f"{indent}  - {sub['point']}")
+                details = sub.get("details", [])
+                for detail in details:
+                    lines.append(f"{indent}    - {detail}")
+            return lines
+
+        formatted_points = ["\n".join(format_argument(arg)) for arg in arguments]
         return formatted_points
 
 
@@ -274,23 +275,24 @@ class DebateManager:
         print(f"\nEvaluation data saved:\n- {filename}\n")
 
 
-def load_latest_taxonomy(topic):
+def load_latest_taxonomy(topic, taxonomy_gen_type):
     topic = topic.replace(" ", "_").lower()
-    folder = f"data/taxonomy/{topic}"
+    # folder = f"data/new_taxonomy/{taxonomy_gen_type}/{topic}"  # NOTE: Change this based on taxonomy!
+    folder = f"data/new_taxonomy/multiagent/{topic}"
 
     if not os.path.exists(folder):
         print(f"No saved taxonomies found for topic: {topic}\n")
         return None
 
-    files = [f for f in os.listdir(folder) if f.endswith(".json")]
-    if not files:
-        print(f"No taxonomy files found in {folder}\n")
-        return None
+    # files = [f for f in os.listdir(folder) if f.endswith(".json")]
+    # if not files:
+    #     print(f"No taxonomy files found in {folder}\n")
+    #     return None
 
-    files.sort(reverse=True)
-    latest_file = files[0]
+    # files.sort(reverse=True)
+    # latest_file = files[0]
 
-    file_path = os.path.join(folder, latest_file)
+    file_path = os.path.join(folder, "temp_0.2_best.json")
 
     with open(file_path, "r", encoding="utf-8") as file:
         taxonomy = json.load(file)
@@ -347,10 +349,10 @@ if __name__ == "__main__":
     # generate debate
     for topic, question in zip(topics, debate_questions):
         print("\n" + "="*60)
-        print(f"Starting debate for {topic}")
+        print(f"Starting debate {topic}: {question}")
         print("="*60 + "\n")
         # load latest taxonomy for this topic
-        taxonomy = load_latest_taxonomy(topic)
+        taxonomy = load_latest_taxonomy(topic, taxonomy_gen_type="multiagent")
 
         debate_manager = DebateManager(
             debate_group=debate_group,

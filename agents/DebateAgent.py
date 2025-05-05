@@ -53,7 +53,7 @@ class DebateAgent:
             model = genai.GenerativeModel(self.model)
             generation_config = GenerationConfig(
                 temperature=self.temperature,
-                max_output_tokens=1024,
+                max_output_tokens=2048,  #1024
             )
             response = model.generate_content(
                 f"{self.persona_prompt} {self.inst_prompt}\n{debate_phase_prompt if debate_phase_prompt is not None else ''}.\nConversation History: {conversation}",

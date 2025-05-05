@@ -1,0 +1,21 @@
+topic,temperature,mode,best_taxonomy_path,comparison_type
+illegal immigration,0.2,neutral_only,data/new_taxonomy/neutral_only/illegal_immigration/temp_0.2_best.json,within-mode
+illegal immigration,0.4,neutral_only,data/new_taxonomy/neutral_only/illegal_immigration/temp_0.4_best.json,within-mode
+illegal immigration,0.6,neutral_only,data/new_taxonomy/neutral_only/illegal_immigration/temp_0.6_best.json,within-mode
+illegal immigration,0.8,neutral_only,data/new_taxonomy/neutral_only/illegal_immigration/temp_0.8_best.json,within-mode
+illegal immigration,1.0,neutral_only,data/new_taxonomy/neutral_only/illegal_immigration/temp_1.0_best.json,within-mode
+gun violence,0.2,neutral_only,data/new_taxonomy/neutral_only/gun_violence/temp_0.2_best.json,within-mode
+gun violence,0.4,neutral_only,data/new_taxonomy/neutral_only/gun_violence/temp_0.4_best.json,within-mode
+gun violence,0.6,neutral_only,data/new_taxonomy/neutral_only/gun_violence/temp_0.6_best.json,within-mode
+gun violence,0.8,neutral_only,data/new_taxonomy/neutral_only/gun_violence/temp_0.8_best.json,within-mode
+gun violence,1.0,neutral_only,data/new_taxonomy/neutral_only/gun_violence/temp_1.0_best.json,within-mode
+abortion,0.2,neutral_only,data/new_taxonomy/neutral_only/abortion/temp_0.2_best.json,within-mode
+abortion,0.4,neutral_only,data/new_taxonomy/neutral_only/abortion/temp_0.4_best.json,within-mode
+abortion,0.6,neutral_only,data/new_taxonomy/neutral_only/abortion/temp_0.6_best.json,within-mode
+abortion,0.8,neutral_only,data/new_taxonomy/neutral_only/abortion/temp_0.8_best.json,within-mode
+abortion,1.0,neutral_only,data/new_taxonomy/neutral_only/abortion/temp_1.0_best.json,within-mode
+economy,0.2,neutral_only,data/new_taxonomy/neutral_only/economy/temp_0.2_best.json,within-mode
+economy,0.4,neutral_only,data/new_taxonomy/neutral_only/economy/temp_0.4_best.json,within-mode
+economy,0.6,neutral_only,data/new_taxonomy/neutral_only/economy/temp_0.6_best.json,within-mode
+economy,0.8,neutral_only,data/new_taxonomy/neutral_only/economy/temp_0.8_best.json,within-mode
+economy,1.0,neutral_only,data/new_taxonomy/neutral_only/economy/temp_1.0_best.json,within-mode

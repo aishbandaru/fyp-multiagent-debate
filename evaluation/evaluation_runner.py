@@ -25,7 +25,7 @@ if __name__ == "__main__":
     debate_structures = config["debate_structures"]
 
     base_transcripts_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "debate_data", debate_group)
-    
+
     print(f"Selected debate group: {debate_group}")
     print(f"Selected debate topics: {debate_topics}\n")
     start_time = datetime.now()

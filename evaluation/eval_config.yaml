@@ -1,28 +1,28 @@
 
 ### evaluation config ###
-model: "gpt"  # options: "mistral:7b", "gpt"
+model: "llama3.2:3b"  # options: "mistral:7b", "gpt", "gemini"
 evaluate_again: True  # run evaluation on transcripts again, even if evaluated. 
 
 metrics:
-  - "attitude"
-  - "final_synthesis"
-  - "repetition"
+  # - "attitude"
+  - "wordcloud"
+  # - "final_synthesis"
 
 
 ### debate transcripts config ###
 debate_group: "neutral_republican_democrat"  # options: "neutral_republican", "neutral_democrat", "neutral_republican_democrat",  "republican_republican2", "democrat_democrat2"
 
 num_debate_rounds: 20  # all debates in dir should have same number of rounds
-num_debate_iterations: 20  # run evaluation on the recent 10 debates/transcripts only
+num_debate_iterations: 10  # run evaluation on the recent 10 debates/transcripts only
 
-debate_structures: 
+debate_structures:
   - "non_taxonomic"
-  # - "taxonomic_full_tree"
+  - "taxonomic_full_tree"
   # - "taxonomic_traversal"
 
 
 debate_topics:
-  # - "illegal_immigration"
+  - "illegal_immigration"
   - "gun_violence"
-  # - "abortion"
-  # - "climate_change"
+  - "abortion"
+  - "economy"
