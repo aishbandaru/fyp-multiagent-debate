@@ -304,7 +304,7 @@ class DebateEvaluator:
                     result = ollama.generate(options={"temperature":0}, model=self.model, prompt=prompt)
                 elif self.model == "gpt":
                     completion = client.chat.completions.create(
-                        model="gpt-4o-mini",
+                        model="gpt-4.1-2025-04-14",  #"gpt-4o-mini",
                         # store=True,
                         messages=[
                             {"role": "user", "content": prompt}

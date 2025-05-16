@@ -20,7 +20,7 @@ from agents.DebateAgent import DebateAgent
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 AGENT_MODEL = "gemini-2.0-flash-lite"
 AGENT_NAMES = {"neutral": "Sam", "republican": "Alex", "democrat": "Taylor", "republican2": "Riley", "republican3": "Morgan", "democrat2": "Quinn", "democrat3": "Drew"}
-EVALUATION_MODEL = "mistral:7b"  # options: "mistral:7b", "gpt-4o-mini"
+EVALUATION_MODEL = "mistral:7b"  # options: "mistral:7b", "gpt-4o-mini", "gpt-4.1-2025-04-14"
 
 
 # total questions: 45 (3 questions in each of 15 political issues)

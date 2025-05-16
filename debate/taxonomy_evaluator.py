@@ -16,7 +16,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 class TaxonomyEvaluator:
-    def __init__(self, root_dir="data/new_taxonomy", mode="neutral_only", model="gpt-4o-mini"):
+    def __init__(self, root_dir="data/new_taxonomy", mode="neutral_only", model="gpt-4.1-2025-04-14"):
         self.root_dir = root_dir
         self.mode = mode  # either 'neutral_only' or 'multiagent'
         self.model = model
