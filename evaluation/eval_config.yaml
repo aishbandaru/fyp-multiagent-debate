@@ -5,8 +5,6 @@ evaluate_again: False  # run evaluation on transcripts again, even if evaluated.
 
 metrics:
   - "attitude"
-  # - "wordcloud"
-  # - "final_synthesis"
 
 
 ### debate transcripts config ###
