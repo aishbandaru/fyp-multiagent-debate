@@ -1,5 +1,0 @@
-topic,temperature,mode,best_taxonomy_path,comparison_type
-illegal immigration,0.6,multiagent,data/new_taxonomy/multiagent/illegal_immigration/temp_0.6_best.json,within-mode
-gun violence,0.4,multiagent,data/new_taxonomy/multiagent/gun_violence/temp_0.4_best.json,within-mode
-abortion,0.4,multiagent,data/new_taxonomy/multiagent/abortion/temp_0.4_best.json,within-mode
-economy,0.4,multiagent,data/new_taxonomy/multiagent/economy/temp_0.4_best.json,within-mode
