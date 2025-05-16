@@ -75,8 +75,6 @@ if __name__ == "__main__":
     print("Selected debate")
 
     # launch parallel debates
-    # for topic, question in zip(topics, debate_questions):
-    #     run_single_debate(topic, question, config, debate_structures, debate_group)
     processes = []
     for topic, question in zip(topics, debate_questions):
         p = multiprocessing.Process(target=run_single_debate, args=(

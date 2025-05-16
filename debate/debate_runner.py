@@ -151,6 +151,7 @@ class DebateManager:
 
         for agent in self.agents:
             prompt = f"Present your opening statement. You may refer to these structured debate dimensions:\n{taxonomy_str}\n"
+            # prompt = f"Present your opening statement."
             self._debate_round(agent, prompt.strip())
 
         for _ in range(1, self.num_debate_rounds - 1): 
@@ -196,6 +197,7 @@ class DebateManager:
 
         for agent in self.agents:
             prompt = f"Present your opening statement. You may refer to these structured debate dimensions:\n{taxonomy_str}\n"
+            # prompt = f"Present your opening statement."
             self._debate_round(agent, prompt.strip())
 
         # discussion rounds using structured taxonomy
@@ -284,15 +286,7 @@ def load_latest_taxonomy(topic, taxonomy_gen_type):
         print(f"No saved taxonomies found for topic: {topic}\n")
         return None
 
-    # files = [f for f in os.listdir(folder) if f.endswith(".json")]
-    # if not files:
-    #     print(f"No taxonomy files found in {folder}\n")
-    #     return None
-
-    # files.sort(reverse=True)
-    # latest_file = files[0]
-
-    file_path = os.path.join(folder, "temp_0.2_best.json")
+    file_path = os.path.join(folder, "temp_0.4_best.json")
 
     with open(file_path, "r", encoding="utf-8") as file:
         taxonomy = json.load(file)

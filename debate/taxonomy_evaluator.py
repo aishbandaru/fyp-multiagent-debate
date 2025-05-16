@@ -129,7 +129,7 @@ class TaxonomyEvaluator:
             "Perspective Coverage": []
         }
 
-        # Get 3 evaluations for each taxonomy dimension
+        # get 3 evaluations for each taxonomy dimension
         for _ in range(3):
             # content = ollama.generate(options={"temperature":0.0}, model="mistral:7b", prompt=prompt)["response"]
             response = client.chat.completions.create(
@@ -147,7 +147,7 @@ class TaxonomyEvaluator:
                     if dimension in scores:
                         scores[dimension].append(float(score))  # Ensure we store it as a float
 
-        # Compute the average for each dimension
+        # compute the average for each dimension
         avg_scores = {dim: sum(scores[dim]) / len(scores[dim]) for dim in scores}
         print(f"Average Scores for topic '{taxonomy['topic']}': {avg_scores}\n")
         return avg_scores
@@ -168,11 +168,11 @@ class TaxonomyEvaluator:
                     n_tax = json.load(f1)
                     m_tax = json.load(f2)
 
-                # Get scores for both taxonomies
+                # get scores for both taxonomies
                 n_scores = self.evaluate_taxonomy(n_tax)
                 m_scores = self.evaluate_taxonomy(m_tax)
 
-                # Compare the averaged scores for the four dimensions
+                # compare the averaged scores for four dimensions
                 n_avg = sum(n_scores.values()) / 4
                 m_avg = sum(m_scores.values()) / 4
 
@@ -191,7 +191,7 @@ class TaxonomyEvaluator:
     def save_summary_csv(self, out_path="taxonomy_evaluation_summary.csv"):
         rows = []
 
-        # --- Within-mode best paths (already selected) ---
+        # record best taxonomy paths for multiagent and neutral-only taxonomies with results
         for topic, temp_results in self.best_paths_per_topic.items():
             for temp, best_path in temp_results.items():
                 rows.append({
@@ -205,14 +205,14 @@ class TaxonomyEvaluator:
                     "winning_mode": ""
                 })
 
-        # --- Divider row before cross-mode ---
+        # add divider row before cross-mode results
         rows.append({
             "topic": "=== CROSS-MODE COMPARISON RESULTS ===",
             "temperature": "", "mode": "", "best_taxonomy_path": "",
             "comparison_type": "", "neutral_scores": "", "multiagent_scores": "", "winning_mode": ""
         })
 
-        # --- Cross-mode comparisons with full score info ---
+        # record vross-mode comparisons with full score info
         for (topic, temp), result in self.across_mode_comparisons.items():
             rows.append({
                 "topic": topic,
@@ -225,14 +225,14 @@ class TaxonomyEvaluator:
                 "winning_mode": result["winner"]
             })
 
-        # --- Divider row before best taxonomy overall ---
+        # add divider row before best taxonomy overall results
         rows.append({
             "topic": "=== BEST TAXONOMY OVERALL (BY AVG SCORE) ===",
             "temperature": "", "mode": "", "best_taxonomy_path": "",
             "comparison_type": "", "neutral_scores": "", "multiagent_scores": "", "winning_mode": ""
         })
 
-        # --- Highest scoring taxonomy overall per topic ---
+        # record highest scoring taxonomy overall per topic
         for topic in self.across_mode_comparisons:
             topic_only = topic[0]
             all_scores = []
@@ -269,7 +269,7 @@ class TaxonomyEvaluator:
                     "winning_mode": ""
                 })
 
-        # --- Save the full CSV ---
+        # save full csv
         with open(out_path, "w", newline="") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=rows[0].keys())
             writer.writeheader()

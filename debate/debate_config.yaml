@@ -8,11 +8,11 @@ taxonomy_tree_depth: null  # options: 1, 2, 3, null = "unspecified"
 
 ### for debate ###
 debate_rounds: 20
-debate_iterations: 1
+debate_iterations: 10
 debate_structures: 
   - "non_taxonomic"
-  # - "taxonomic_full_tree"
-  # - "taxonomic_traversal"
+  - "taxonomic_full_tree"
+  - "taxonomic_traversal"
 
 
 baseline_debate_topics:
@@ -21,19 +21,14 @@ baseline_debate_topics:
   - "abortion"
   - "economy"
 
-  # - "religion"
-
 baseline_debate_questions:
 - "Do immigrants take jobs away from American-born workers?"
 - "Should the government enforce stricter gun ownership laws?"
 - "Should partial-birth abortions be banned to protect unborn children?"
 - "Should Congress raise taxes on the wealthy to reduce the federal budget deficit?"
 
-# - "Should a business be able to deny service to a customer based on religius belief?"
-
 
 extra_debate_topics:
-  - "racism"
   - "evolution"
   - "trade tariffs"
   - "climate change"

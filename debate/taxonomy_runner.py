@@ -28,7 +28,6 @@ class TaxonomyGenerator:
 
 
     def _get_taxonomy_prompt(self):
-        # You are participating in a political debate on the topic "{debate_topic}" for the debate motion: "{debate_motion}".  Collaborate with the other experts.
         taxonomy_prompt = f"""
         You are an expert in structuring political debates. Generate a taxonomy for the debate topic '{self.debate_question}' in JSON format. Collaborate with the other experts. This taxonomy includes:
         1. A root node for the debate topic
@@ -59,13 +58,13 @@ class TaxonomyGenerator:
                 },
                 ... (3 more points)
             ]
-            }
+        }
         """
         return taxonomy_prompt
 
 
     def start(self):
-        for _ in range(self.taxonomy_iterations):  # TODO: save debate data (transcript) + final taxonomy; clear data before every run 
+        for _ in range(self.taxonomy_iterations):
             self._start_taxonomy_debate()
 
             taxonomy_str = None
@@ -77,13 +76,13 @@ class TaxonomyGenerator:
                 if entry.get("agent") == "neutral":
                     response = entry.get("response", "").strip()
                     if "```json" in response:
-                        # Start of JSON block
+                        # start of JSON block
                         start_idx = response.find("```json") + len("```json")
-                        # End of JSON block (looking for the first closing ``` after the JSON block)
+                        # end of JSON block (looking for the first closing ``` after the JSON block)
                         end_idx = response.find("```", start_idx)
 
                         if start_idx != -1 and end_idx != -1:
-                            # Extract the JSON content
+                            # extract the JSON taxonomy content
                             taxonomy_str = response[start_idx:end_idx].strip()
                             break
 
@@ -105,29 +104,25 @@ class TaxonomyGenerator:
 
 
     def _parse_taxonomy(self, taxonomy_str):
-        # Extract JSON code block content
+        # extract JSON code block content
         match = re.search(r"```json\s*(\{.*?\})\s*```", taxonomy_str, re.DOTALL)
 
         if not match:
-            # Fallback to matching JSON in the plain string, with or without prefix
+            # fallback to matching JSON in the plain string, with or without prefix
             match = re.search(r"(?:Taxonomy\s*=\s*)?(\{.*\})", taxonomy_str, re.DOTALL)
 
         if match:
             json_str = match.group(1)
 
-            # Custom function to fix subarguments: ensure they are either strings or empty objects
+            # custom function to fix subarguments: ensure they are either strings or empty objects
             def fix_subarguments(data):
                 if isinstance(data, dict):
-                    # For each key-value pair in the dictionary
                     for key, value in data.items():
                         if isinstance(value, str):
-                            # If the value is a string, leave it as it is
                             continue
                         elif isinstance(value, dict) and not value:
-                            # If the value is an empty dictionary, keep it as it is
                             continue
                         else:
-                            # If it's neither, recursively process it
                             fix_subarguments(value)
                 return data
 
@@ -135,7 +130,7 @@ class TaxonomyGenerator:
                 print("\nTaxonomy String before parsing:", taxonomy_str)
                 taxonomy_dict = json.loads(json_str)
 
-                # Fix subarguments after parsing the JSON
+                # resolve subarguments after parsing the JSON
                 taxonomy_dict = fix_subarguments(taxonomy_dict)
                 print("Parsed taxonomy successfully.")
                 return taxonomy_dict
@@ -154,7 +149,7 @@ class TaxonomyGenerator:
 
         for _ in range(1, self.taxonomy_rounds - 1): 
             for agent in self.agents:
-                self._debate_round(agent, "Update the taxonomy based on previous contributions. You may refine, merge, or extend existing points.")  # Complete your next reply based on the taxonomy so far
+                self._debate_round(agent, "Update the taxonomy based on previous contributions. You may refine, merge, or extend existing points.")
 
         for agent in self.agents:
             self._debate_round(agent, "Present your final taxonomy of the debate topic based on previous contributions.")
@@ -180,7 +175,6 @@ class TaxonomyGenerator:
         os.makedirs(save_folder, exist_ok=True)
 
         timestamp = datetime.now().strftime("%d%m%Y_%H%M%S")
-        # filename = f"{save_folder}/{topic}_{timestamp}.json"
 
         filename = f"data/new_taxonomy/multiagent/{topic}/temp_{agent.temperature}_best.json" 
 
