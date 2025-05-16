@@ -290,7 +290,7 @@ def interview_agents(agents, questions, csv_filename):
                 csv_data.append([
                     agent.name,
                     agent.identifier.title(),
-                    category,  # Add category here
+                    category,
                     question,
                     response
                 ])
