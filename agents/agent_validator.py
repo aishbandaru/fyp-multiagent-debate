@@ -325,11 +325,11 @@ def evaluate_response(question, response, affiliation):
     political_affiliation = None
 
     if affiliation == "neutral":
-        political_affiliation = "neutral American"
+        political_affiliation = "neutral American"  # with centrist views"
     elif affiliation == "republican":
-        political_affiliation = "Republican American"
+        political_affiliation = "Republican American"  # with right-leaning views"
     elif affiliation == "democrat":
-            political_affiliation = "Democrat American"
+            political_affiliation = "Democrat American"  # with left-leaning views"
 
     print(f"Affiliation is: {affiliation}\n")
 
