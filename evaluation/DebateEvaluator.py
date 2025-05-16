@@ -77,22 +77,6 @@ class DebateEvaluator:
             all_attitude_scores = {}
             self.structure_topic_path = structure_topic
 
-            # Generate WordClouds for each debate structure
-            if "wordcloud" in self.metrics:
-                cosine_similarities = self.compute_cosine_similarity(structure_topic, transcript_list, base_transcripts_path)
-                # Compute average cosine similarity for each structure
-                avg_similarities = self.average_cosine_similarity(cosine_similarities)
-                print(avg_similarities, "\n")
-
-                # Perform statistical significance testing
-                anova_result, levene_result = self.perform_statistical_testing(avg_similarities)
-
-                print(anova_result, levene_result, "\n")
-
-                # self.generate_word_frequency_graph(structure_topic, transcript_list, base_transcripts_path)
-                # self.generate_wordclouds(structure_topic, transcript_list, base_transcripts_path)
-                # self.compare_wordclouds(structure_topic, transcript_list, base_transcripts_path)
-
             if "attitude" in self.metrics:
                 for agent in self.debate_group:
                     all_attitude_scores[agent] = [[] for _ in range(self.num_iterations)]
@@ -109,232 +93,19 @@ class DebateEvaluator:
                         for agent in self.debate_group:
                             all_attitude_scores[agent][debate] = scores[agent]
 
-                # if "attitude" in self.metrics:
                 self._compute_attitude_metrics(all_attitude_scores)
                 # self._generate_summary_metrics(all_attitude_scores)
                 topic_name = structure_topic.split("/")[-1]
                 self._generate_attitude_box_plot(all_attitude_scores, topic_name)
-        
+
         print("="*60 + "\n")
 
 
-    def compare_wordclouds(self, structure_topic, transcript_list, base_transcripts_path):
-        """Compare word clouds for different debate structures and topics using cosine similarity."""
-
-        term_frequencies = {}
-
-        # Generate term frequencies for each word cloud
-        for debate in transcript_list:  # Loop over each transcript in the list
-            transcript_path = os.path.join(base_transcripts_path, structure_topic, debate)
-            transcript = self._load_transcript(transcript_path)
-
-            # Collect text from all rounds for each agent in the debate group
-            full_text = ""
-            for agent in self.debate_group:
-                for round_num in range(self.num_debate_rounds):
-                    round_label = f"round_{round_num}"
-                    if round_label in transcript.get(agent, {}):
-                        full_text += transcript[agent].get(round_label, "") + " "
-
-            # Clean the text for analysis
-            clean_text = self.clean_text(full_text)
-
-            # Compute term frequencies for the text and store with debate name as key
-            term_frequencies[debate] = Counter(clean_text.split())
-
-        # Compare term frequencies using cosine similarity
-        debate_keys = list(term_frequencies.keys())
-        num_debates = len(debate_keys)
-        similarity_matrix = np.zeros((num_debates, num_debates))
-
-        # Calculate cosine similarity between each pair of word clouds (debates)
-        for i in range(num_debates):
-            for j in range(i + 1, num_debates):
-                # Get term frequencies as vectors
-                terms_i = term_frequencies[debate_keys[i]]
-                terms_j = term_frequencies[debate_keys[j]]
-
-                # Union of all words to compare
-                all_terms = list(set(terms_i.keys()).union(set(terms_j.keys())))
-                vector_i = [terms_i.get(term, 0) for term in all_terms]
-                vector_j = [terms_j.get(term, 0) for term in all_terms]
-
-                # Compute cosine similarity
-                similarity = cosine_similarity([vector_i], [vector_j])[0][0]
-                similarity_matrix[i, j] = similarity
-                similarity_matrix[j, i] = similarity
-
-        # Print the similarity matrix
-        print("Cosine Similarity Matrix:")
-        print(similarity_matrix)
-
-        # Optionally: Visualize or plot the similarity matrix (use a heatmap)
-        # Use seaborn or matplotlib for a more visual representation
-        # import seaborn as sns
-        # sns.heatmap(similarity_matrix, annot=True, cmap="YlGnBu", xticklabels=debate_keys, yticklabels=debate_keys)
-
-
-    def generate_word_frequency_graph(self, structure_topic, transcript_list, base_transcripts_path):
-        """Generate a word frequency bar graph for the entire topic from all transcripts."""
-        
-        full_text = ""  # Initialize an empty string to hold all text for the topic
-
-        # Loop through each debate in the transcript list
-        for debate in transcript_list:
-            transcript_path = os.path.join(base_transcripts_path, structure_topic, debate)
-            transcript = self._load_transcript(transcript_path)
-
-            # Collect text from each round for each agent in the debate group
-            for agent in self.debate_group:
-                for round_num in range(self.num_debate_rounds):
-                    round_label = f"round_{round_num}"
-                    if round_label in transcript.get(agent, {}):
-                        full_text += transcript[agent].get(round_label, "") + " "
-        
-        # Clean the full text for word frequency analysis
-        full_text = self.clean_text(full_text)
-
-        # Split text into words and calculate frequency
-        word_list = full_text.split()
-        filtered_word_list = [word for word in word_list if word not in self.stop_words]
-        word_freq = Counter(filtered_word_list)
-
-        # # Split text into words and calculate frequency
-        # word_list = full_text.split()
-        # word_freq = Counter(word_list)
-
-        # Sort the words by frequency
-        sorted_word_freq = dict(word_freq.most_common(20))  # Show top 20 most frequent words
-        
-        # Generate a bar graph for word frequencies
-        self._generate_bar_graph(sorted_word_freq, structure_topic)
-
-    def _generate_bar_graph(self, word_freq, structure_topic):
-        """Generate and save a bar graph of word frequencies."""
-        words = list(word_freq.keys())
-        frequencies = list(word_freq.values())
-
-        # Create a bar chart
-        plt.figure(figsize=(10, 6))
-        plt.barh(words, frequencies, color='skyblue')
-        plt.xlabel('Frequency')
-        plt.ylabel('Words')
-        plt.title(f'Word Frequency Graph for {structure_topic}')
-        plt.tight_layout()
-
-        # Save the graph as a PNG file
-        save_dir = self._get_relative_path(f"{'_'.join(self.debate_group)}", "data/word_frequencies")
-        os.makedirs(save_dir, exist_ok=True)
-
-        graph_filename = f"{structure_topic.split('/')[0]}_{structure_topic.split('/')[1]}_word_frequency.png"
-        graph_path = os.path.join(save_dir, graph_filename)
-        plt.savefig(graph_path)
-        plt.close()
-        print(f"Saved word frequency graph: {graph_path}")
-
-
-
-    def generate_wordclouds(self, structure_topic, transcript_list, base_transcripts_path):
-        """Generate a single word cloud for the entire topic from all transcripts."""
-        
-        full_text = ""  # Initialize an empty string to hold all text for the topic
-
-        # Loop through each debate in the transcript list
-        for debate in transcript_list:
-            transcript_path = os.path.join(base_transcripts_path, structure_topic, debate)
-            transcript = self._load_transcript(transcript_path)
-
-            # Collect text from each round for each agent in the debate group
-            for agent in self.debate_group:
-                for round_num in range(self.num_debate_rounds):
-                    round_label = f"round_{round_num}"
-                    if round_label in transcript.get(agent, {}):
-                        full_text += transcript[agent].get(round_label, "") + " "
-        
-        # Clean the full text for word cloud generation
-        full_text = self.clean_text(full_text)
-
-        # Generate the word cloud for the entire topic
-        wordcloud = WordCloud(width=800, height=400, background_color="white").generate(full_text)
-
-        # Save the word cloud image
-        save_dir = self._get_relative_path(f"{'_'.join(self.debate_group)}", "data/wordclouds")
-        os.makedirs(save_dir, exist_ok=True)
-
-        wordcloud_filename = f"{structure_topic.split('/')[0]}_{structure_topic.split('/')[1]}_wordcloud.pdf"
-        wordcloud_path = os.path.join(save_dir, wordcloud_filename)
-        wordcloud.to_file(wordcloud_path)
-        print(f"Saved wordcloud: {wordcloud_path}")
-
-
-    def clean_text(self, text):
-        """Clean and process text for word cloud."""
-        text = text.lower()  # Convert to lowercase
-        text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
-        # Additional stopword filtering can be added here
-        return text
-
-
-    def compute_cosine_similarity(self, structure_topic, transcript_list, base_transcripts_path):
-        """Compute the cosine similarity for each debate in each structure."""
-        topic_cosine_similarities = defaultdict(list)  # To store cosine similarities per topic for each structure
-        
-        # Loop through each structure
-        for structure in ['non_taxonomic', 'taxonomic_full_tree', 'taxonomic_traversal']:
-            full_texts = []  # Store the full text for each debate in this structure
-            
-            # Loop through each debate in the structure's list
-            for debate in transcript_list:
-                transcript_path = os.path.join(base_transcripts_path, structure_topic, debate)
-                transcript = self._load_transcript(transcript_path)
-                full_text = ""
-                
-                # Collect text from each round for each agent in the debate group
-                for agent in self.debate_group:
-                    for round_num in range(self.num_debate_rounds):
-                        round_label = f"round_{round_num}"
-                        if round_label in transcript.get(agent, {}):
-                            full_text += transcript[agent].get(round_label, "") + " "
-                
-                # Clean the full text and append it to the list
-                full_text = self.clean_text(full_text)
-                full_texts.append(full_text)
-            
-            # Calculate the cosine similarity between each pair of debates in the structure
-            cosine_similarities = self.calculate_cosine_similarities(full_texts)
-            topic_cosine_similarities[structure] = cosine_similarities
-        
-        return topic_cosine_similarities
-    
-    def calculate_cosine_similarities(self, texts):
-        """Calculate cosine similarities between all pairs of texts in the list."""
-        vectorizer = TfidfVectorizer(stop_words='english')
-        tfidf_matrix = vectorizer.fit_transform(texts)
-        
-        # Compute cosine similarity matrix
-        cosine_sim_matrix = cosine_similarity(tfidf_matrix)
-        
-        # We only need the upper triangular part excluding the diagonal
-        num_texts = len(texts)
-        similarities = []
-        for i in range(num_texts):
-            for j in range(i + 1, num_texts):
-                similarities.append(cosine_sim_matrix[i, j])
-        
-        # Return the list of cosine similarities
-        return similarities
-    
-    def average_cosine_similarity(self, cosine_similarities):
-        """Calculate the average cosine similarity for each structure."""
-        avg_similarities = {structure: np.mean(similarities) for structure, similarities in cosine_similarities.items()}
-        return avg_similarities
-
     def perform_statistical_testing(self, avg_similarities):
-        """Perform statistical significance testing (ANOVA and Levene's test)."""
-        # Perform ANOVA to check if the means of cosine similarities are significantly different across structures
+        # perform ANOVA to check if means of cosine similarities are different across structures
         anova_result = stats.f_oneway(*avg_similarities.values())
         
-        # Perform Levene's test to check if variances are equal across structures
+        # perform Levene's test to check if variances are equal across structures
         levene_result = stats.levene(*avg_similarities.values())
         
         print(f"ANOVA result: F-statistic = {anova_result.statistic}, p-value = {anova_result.pvalue}")
@@ -344,7 +115,10 @@ class DebateEvaluator:
 
 
     def _compute_attitude_metrics(self, all_attitude_scores):
-        metrics_df = pd.DataFrame(columns=[
+        max_rounds = max(len(scores_per_round[0]) for scores_per_round in all_attitude_scores.values())
+        max_iters = max(len(scores_per_round) for scores_per_round in all_attitude_scores.values())
+
+        base_columns = [
             "agent",
             "num_debate_rounds",
             "num_debate_iterations",
@@ -353,15 +127,24 @@ class DebateEvaluator:
             "mean_travel",
             "mean_iqr",
             "gradient"
-        ])
+        ]
+
+        # create columns for average scores per round (wide summary csv with mean metrics)
+        round_avg_columns = [f"avg_round_{i+1}" for i in range(max_rounds)]
+
+        metrics_df = pd.DataFrame(columns=base_columns + round_avg_columns)
+
+        # DataFrame for long format csv with detailed scores: one row per agent-round-iteration score
+        long_format_rows = []
 
         for agent, scores_per_round in all_attitude_scores.items():
             try:
                 scores_per_round_np = np.array(scores_per_round)
             except ValueError:
-                print("Check if `debate_iterations` is set correctly and that there are enough debate transcript files.")
+                print(f"Check `debate_iterations` or data for agent {agent}. Skipping.")
+                continue
 
-            # Metrics
+            # summary metrics calculation
             mean_first_round = np.mean(scores_per_round_np[:, 0])
             mean_last_round = np.mean(scores_per_round_np[:, -1])
             mean_travel = mean_last_round - mean_first_round
@@ -369,14 +152,20 @@ class DebateEvaluator:
             iqr_per_round = scipy.stats.iqr(scores_per_round_np, axis=1)
             mean_iqr = np.mean(iqr_per_round)
 
-            # Linear regression to compute gradient
+            # linear regression for gradient
             X = np.arange(scores_per_round_np.shape[1]).reshape(-1, 1)
             Y = np.mean(scores_per_round_np, axis=0)
             model = LinearRegression()
             model.fit(X, Y)
             gradient = model.coef_[0]
 
-            # Round values for cleaner CSV
+            # average scores per round
+            avg_scores_per_round = np.mean(scores_per_round_np, axis=0)
+            avg_scores_rounded = [round(x, 2) for x in avg_scores_per_round]
+            if len(avg_scores_rounded) < max_rounds:
+                avg_scores_rounded += [float('nan')] * (max_rounds - len(avg_scores_rounded))
+
+            # build summary row
             metrics_df.loc[agent] = [
                 agent,
                 self.num_debate_rounds,
@@ -385,17 +174,37 @@ class DebateEvaluator:
                 round(mean_last_round, 2),
                 round(mean_travel, 2),
                 round(mean_iqr, 2),
-                round(gradient, 4)
+                round(gradient, 4),
+                *avg_scores_rounded
             ]
 
+            # build long-format data: iterate over rounds and iterations
+            # scores_per_round_np shape: (num_iterations, num_rounds)
+            for iteration_idx in range(scores_per_round_np.shape[0]):
+                for round_idx in range(scores_per_round_np.shape[1]):
+                    score = scores_per_round_np[iteration_idx, round_idx]
+                    long_format_rows.append({
+                        "agent": agent,
+                        "round": round_idx + 1,
+                        "iteration": iteration_idx + 1,
+                        "score": score
+                    })
+
+        long_format_df = pd.DataFrame(long_format_rows)
+
+        # save both files
         save_dir = self._get_relative_path(f"{'_'.join(self.debate_group)}/{self.structure_topic_path}", "data/evaluation")
         os.makedirs(save_dir, exist_ok=True)
 
-        filename = f"metrics_{self.structure_topic_path.split('/')[-1]}_{self.num_debate_rounds}_rounds.csv"
-        metrics_path = os.path.join(save_dir, filename)
+        summary_filename = f"metrics_mean_{self.structure_topic_path.split('/')[-1]}_{self.num_debate_rounds}_rounds.csv"
+        summary_path = os.path.join(save_dir, summary_filename)
+        metrics_df.to_csv(summary_path, index=False)
+        print(f"Saved summary metrics: {summary_path}")
 
-        metrics_df.to_csv(metrics_path, index=False)
-        print(f"Saved metrics: {metrics_path}")
+        long_filename = f"metrics_long_{self.structure_topic_path.split('/')[-1]}_{self.num_debate_rounds}_rounds.csv"
+        long_path = os.path.join(save_dir, long_filename)
+        long_format_df.to_csv(long_path, index=False)
+        print(f"Saved long-format detailed scores: {long_path}")
 
 
     def evaluate_transcript(self, filename):
@@ -429,14 +238,14 @@ class DebateEvaluator:
     
 
     def _evaluate_attitude_scores_parallel(self, transcript, topic_name, debate_question):
-        # Prepare all arguments for parallel processing
+        # prep all arguments for parallel processing
         args = [(transcript, topic_name, round_num) for round_num in range(self.num_debate_rounds)]
         
-        # Process rounds in parallel
+        # process rounds in parallel
         with Pool(processes=multiprocessing.cpu_count()) as pool:
             round_results = pool.starmap(self._evaluate_single_round, args)
         
-        # Reconstruct the attitude_scores dictionary from the results
+        # reconstruct attitude_scores dict from the results
         attitude_scores = {agent: [] for agent in self.debate_group}
         for round_result in round_results:
             for agent, score in round_result.items():
@@ -460,24 +269,6 @@ class DebateEvaluator:
         
         return round_scores
 
-    # def _evaluate_round_parallel(self, transcript, attitude_scores, debate_topic, round_num):
-    #     round_num_label = f"round_{round_num}"
-        
-    #     for agent_type in self.debate_group:
-    #         response = transcript.get(agent_type, {}).get(round_num_label)
-
-    #         if response:
-    #             score = self._get_llm_attitude_score(response, debate_topic)
-    #             # Initialize the agent's list in the shared dictionary if not already initialized
-    #             if agent_type not in attitude_scores:
-    #                 attitude_scores[agent_type] = []
-    #             attitude_scores[agent_type].append(score if score is not None else 4)
-    #         else:
-    #             # Initialize the agent's list in the shared dictionary if no response
-    #             if agent_type not in attitude_scores:
-    #                 attitude_scores[agent_type] = []
-    #             attitude_scores[agent_type].append(None)
-
 
     def _evaluate_attitude_scores(self, transcript, topic_name, debate_question):
         attitude_scores = {agent: [] for agent in self.debate_group}
@@ -497,10 +288,6 @@ class DebateEvaluator:
 
             if response:
                 score = self._get_llm_attitude_score(response, debate_topic)
-
-                # if round_num > 1 and attitude_scores[agent_type][-1] is not None:
-                #     prev_score = attitude_scores[agent_type][-1]
-                #     score = (score + prev_score) / 2  # avg of current and previous scores
 
                 attitude_scores[agent_type].append(score if score is not None else 4)
             else:
@@ -526,7 +313,7 @@ class DebateEvaluator:
                     )
                     result = completion.choices[0].message.content
                 elif self.model == "gemini":
-                    model = genai.GenerativeModel("gemini-2.0-flash-lite")
+                    model = genai.GenerativeModel("gemini-2.0-flash")
                     generation_config = GenerationConfig(
                         temperature=0,
                         max_output_tokens=1024,
@@ -553,7 +340,6 @@ class DebateEvaluator:
     def _generate_attitude_judge_prompt(self, response, debate_topic):
         attitude_scale_desc = "You should rate on a scale from 1 to 7, where: 1 = Strongly Disagree, 2 = Moderately Disagree, 3 = Slightly Disagree, " \
             "4 = Neutral, 5 = Slightly Agree, 6 = Moderately Agree, 7 = Strongly Agree."
-        # attitude_scale_desc = "You should rate on a scale from 1 (strongly disagree) to 7 (strongly agree)"
 
         agreement_statements = {
             "illegal immigration": "Immigrants take jobs from American-born workers.",
@@ -563,7 +349,7 @@ class DebateEvaluator:
             "religion": "Businesses should be allowed to deny service based on religious beliefs."
         }
 
-        # Using prompting technique from paper: https://arxiv.org/pdf/2411.15594, pg7, Section 2.1.1, Fig. 4
+        # using prompting technique from paper, A Survey on LLM-as-a-Judge: https://arxiv.org/pdf/2411.15594, pg7, Section 2.1.1, Fig. 4
         attiude_judge_prompt = (
             f"Evaluate the attitude of the response from a political debate. Rate each response on one dimension: Agreement with the statement '{agreement_statements[debate_topic]}'. {attitude_scale_desc}. Return ONLY the NUMERIC SCORE."
             f"\nDebate Response: {response}"
@@ -591,11 +377,6 @@ class DebateEvaluator:
 
         plt.figure(figsize=(10, 5))
         x_vals = list(range(1, self.num_debate_rounds + 1))
-
-        # print("X AND Y LENGTHS: ", len(x_vals), len(attitude_scores["neutral"]))
-        # print("NEUTRAL: ", x_vals, attitude_scores["neutral"])
-        # print("REPUBLCIAN: ",x_vals, attitude_scores["republican"])
-        # print("DEMOCRAT: ",x_vals, attitude_scores["democrat"])
 
         for agent in self.debate_group:
             color = self.color_mapping.get(agent.split('_')[0].lower(), 'gray')
@@ -634,15 +415,15 @@ class DebateEvaluator:
     def _generate_attitude_box_plot(self, attitude_scores, topic_name):  
         turns = np.array(range(1, self.num_debate_rounds + 1), dtype=np.float32)
         
-        # Read metrics CSV
+        # read metrics CSV
         metrics_path = self._get_relative_path(f"{'_'.join(self.debate_group)}/{self.structure_topic_path}", "data/evaluation")
-        metrics_file = os.path.join(metrics_path, f"metrics_{topic_name}_{self.num_debate_rounds}_rounds.csv")
+        metrics_file = os.path.join(metrics_path, f"metrics_mean_{topic_name}_{self.num_debate_rounds}_rounds.csv")
         metrics = pd.read_csv(metrics_file)
 
-        # Create figure with adjusted height
-        plt.figure(figsize=(10.5, 7.0))  # Adjusted height for 2-line legend
+        # create figure with adjusted height
+        plt.figure(figsize=(10.5, 7.0))  # height for 2-line legend
         
-        # Plot all elements
+        # plot all elements
         for agent in self.debate_group:
             scores_array = np.array(attitude_scores[agent])
             q1 = np.percentile(scores_array, 25, axis=0)
@@ -651,17 +432,18 @@ class DebateEvaluator:
             max_vals = np.max(scores_array, axis=0)
             color = self.color_mapping[agent]
             
+            # for whiskers
             # for i, turn in enumerate(turns):
-                # plt.plot([turn, turn], [q1[i], q3[i]], 
-                #         color=color, linewidth=2, alpha=0.7)
-                # plt.plot([turn-0.1, turn+0.1], [q1[i], q1[i]], 
-                #         color=color, linewidth=2, alpha=0.7)
-                # plt.plot([turn-0.1, turn+0.1], [q3[i], q3[i]], 
-                #         color=color, linewidth=2, alpha=0.7)
-                # plt.scatter(turn, min_vals[i], color=color, marker='x', s=50, zorder=3)
-                # plt.scatter(turn, max_vals[i], color=color, marker='x', s=50, zorder=3)
+            #     plt.plot([turn, turn], [q1[i], q3[i]], 
+            #             color=color, linewidth=2, alpha=0.7)
+            #     plt.plot([turn-0.1, turn+0.1], [q1[i], q1[i]], 
+            #             color=color, linewidth=2, alpha=0.7)
+            #     plt.plot([turn-0.1, turn+0.1], [q3[i], q3[i]], 
+            #             color=color, linewidth=2, alpha=0.7)
+            #     plt.scatter(turn, min_vals[i], color=color, marker='x', s=50, zorder=3)
+            #     plt.scatter(turn, max_vals[i], color=color, marker='x', s=50, zorder=3)
 
-        # Plot mean lines
+        # plot mean lines
         mean_lines = []
         for agent in self.debate_group:
             mean_scores = np.mean(np.array(attitude_scores[agent]), axis=0)
@@ -669,7 +451,7 @@ class DebateEvaluator:
                         linewidth=2.5, color=self.color_mapping[agent], zorder=2)
             mean_lines.append(line[0])
 
-        # Create compact legend labels
+        # create compact legend labels
         legend_labels = []
         for agent in self.debate_group:
             agent_metrics = metrics[metrics["agent"] == agent].iloc[0]
@@ -678,11 +460,11 @@ class DebateEvaluator:
                 f"IQR: {agent_metrics['mean_iqr']:.2f} m: {agent_metrics['gradient']:.2f})"
             )
 
-        # Calculate optimal columns for 2-line legend
+        # calculate optimal columns for 2-line legend
         n_agents = len(self.debate_group)
-        ncol = n_agents // 2 + n_agents % 2  # Split into 2 roughly equal lines
+        ncol = n_agents // 2 + n_agents % 2  # split into 2 roughly equal lines
 
-        # Put legend below current axis
+        # put legend below current axis
         leg = plt.legend(mean_lines, legend_labels,
             loc='upper center',
             bbox_to_anchor=(0.5, -0.15),
@@ -691,14 +473,14 @@ class DebateEvaluator:
             framealpha=0.9,
             handlelength=1.5,
             columnspacing=1.0,
-            handletextpad=0.5,  # Space between handle and text
-            labelspacing=0.5,   # Space between entries
-            borderpad=0.5)      # Space around legend content
+            handletextpad=0.5,
+            labelspacing=0.5,
+            borderpad=0.5)
 
-        # Adjust plot margins
-        plt.subplots_adjust(bottom=0.25 + 0.05*n_agents)  # Dynamic bottom margin
+        # adjust plot margins
+        plt.subplots_adjust(bottom=0.25 + 0.05*n_agents)  # dynamic bottom margin
 
-        # Formatting
+        # formatting
         plt.xlabel("Debate Round", fontsize=11.5)
         plt.ylabel("Attitude Score (1-7)", fontsize=11.5)
         
@@ -721,7 +503,7 @@ class DebateEvaluator:
         plt.xlim(0.5, self.num_debate_rounds+0.5)
         plt.xticks(range(1, self.num_debate_rounds+1))
 
-        # Save plot
+        # save plot
         plot_dir = self._get_relative_path(f"{'_'.join(self.debate_group)}/{self.structure_topic_path}", "data/evaluation")
         os.makedirs(plot_dir, exist_ok=True)
         plot_path = os.path.join(plot_dir, f"box_plot_{topic_name}_{self.num_debate_rounds}_rounds.pdf")
@@ -729,90 +511,3 @@ class DebateEvaluator:
         plt.close()
         print(f"Generated box plot: {plot_path}")
 
-
-
-
-    # def _generate_summary_metrics(self, all_attitude_scores):
-    #     # Initialize an empty DataFrame to hold the summary metrics
-    #     summary_df = pd.DataFrame(columns=["structure", "topic", "avg_convergence", "avg_travel", "avg_iqr", "avg_corr", "avg_effectiveness"])
-
-    #     # Loop through each combination of structure and topic
-    #     for structure in self.debate_structures:  # self.debate_structures is a list of debate structures (e.g., ["taxonomy_fulltree", "taxonomy_traversal"])
-    #         for topic in self.debate_topics:  # self.debate_topics is a list of debate topics (e.g., ["illegal_immigration", "climate_change"])
-                
-    #             structure_topic = f"{structure}/{topic}"
-
-    #             # Read the existing metrics CSV file for this structure-topic
-                # metrics_path = self._get_relative_path(f"{'_'.join(self.debate_group)}/{structure_topic}", "data/evaluation")
-                # metrics_file = os.path.join(metrics_path, f"metrics_{topic}_{self.num_debate_rounds}_rounds.csv")
-    #             print(metrics_file)
-                
-    #             # Check if file exists, and load it
-    #             if os.path.exists(metrics_file):
-    #                 metrics_df = pd.read_csv(metrics_file)
-    #             else:
-    #                 print(f"Metrics file not found: {metrics_file}")
-    #                 continue
-
-    #             # Compute additional metrics based on the attitude scores in the metrics dataframe
-    #             avg_convergence = 0
-    #             avg_travel = 0
-    #             avg_iqr = 0
-    #             avg_corr = 0
-    #             avg_effectiveness = 0
-
-    #             for _, row in metrics_df.iterrows():
-    #                 mean_first_round = {}
-    #                 mean_last_round = {}
-
-    #                 for agent in self.debate_group:
-    #                     # Filter the row for each agent's first and last round scores
-    #                     agent_data = row[row['agent'] == agent]
-
-    #                     mean_first_round[agent] = agent_data['mean_first_round'].values[0]
-    #                     mean_last_round[agent] = agent_data['mean_last_round'].values[0]
-
-    #                 # convergence: attitude distance between closing statements of agents
-    #                 closing_distance = abs(mean_last_round["republican"] - mean_last_round["neutral"])
-    #                 avg_convergence += closing_distance
-
-    #                 # opening vs closing round attiude distance (how far agents came)
-    #                 opening_distance = abs(mean_first_round["republican"] - mean_first_round["neutral"])
-    #                 closing_distance = abs(mean_last_round["republican"] - mean_last_round["neutral"])
-    #                 delta_distance = opening_distance - closing_distance
-    #                 avg_travel += delta_distance
-
-    #                 # agent travel (total shift)
-    #                 travel_neutral = mean_last_round["neutral"] - mean_first_round["neutral"]
-    #                 travel_republican = mean_last_round["republican"] - mean_first_round["republican"]
-    #                 travel_democrat = 
-    #                 avg_travel += abs(travel_neutral) + abs(travel_republican)
-
-    #                 # Correlation between agents (mean attitude across rounds)
-    #                 neutral_scores = all_attitude_scores["neutral"]
-    #                 republican_scores = all_attitude_scores["republican"]
-    #                 corr = np.corrcoef(neutral_scores, republican_scores)[0, 1]
-    #                 avg_corr += corr
-
-    #                 # Effectiveness: Combined metric of travel and convergence
-    #                 effectiveness = delta_distance + abs(travel_neutral) + abs(travel_republican)
-    #                 avg_effectiveness += effectiveness
-
-    #             # Average metrics for this structure-topic pair
-    #             num_rows = len(metrics_df)
-    #             summary_df.loc[len(summary_df)] = [
-    #                 structure,
-    #                 topic,
-    #                 avg_convergence / num_rows,
-    #                 avg_travel / num_rows,
-    #                 np.mean(metrics_df["mean_iqr"]),
-    #                 avg_corr / num_rows,
-    #                 avg_effectiveness / num_rows,
-    #             ]
-
-    #     # Save the summary metrics to a new CSV
-    #     summary_metrics_path = self._get_relative_path(f"{'_'.join(self.debate_group)}", "data/evaluation")
-    #     os.makedirs(summary_metrics_path, exist_ok=True)
-    #     summary_file = os.path.join(summary_metrics_path, "summary_metrics.csv")
-    #     summary_df.to_csv(summary_file, index=False)
-    #     print(f"Saved summary metrics to: {summary_file}")
