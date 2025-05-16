@@ -107,7 +107,8 @@ python3 test_ollama.py
 
 ### Debate Evaluation
 1. Update Evaluation Configuration
-    Similarly, update evaluation/eval_config.yaml with the required evaluation parameters.
+    Similarly, update evaluation/eval_config.yaml with the required evaluation parameters. If the Taxonomy
+    Traversal debate structure is selected, the debate rounds should be set to 22. Otherwise it should be set to 20.
 
 2. Run the Debate Evaluation
     ```bash

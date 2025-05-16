@@ -33,7 +33,6 @@ extra_debate_topics:
   - "trade tariffs"
   - "climate change"
 
-# - "Should the city go ahead with building the manufacturing plant?"
 
 ### for agents ###
 token_limit: 75
@@ -41,18 +40,18 @@ temperature: 0.3
 debate_agents:
   - identifier: "neutral"
     name: "Sam"
-    model: "gemini-2.0-flash-lite" #"llama3.2:3b", "gemini-1.5-flash"
+    model: "gemini-2.0-flash" #"llama3.2:3b", "gemini-1.5-flash"
     party: null
     leaning: null
 
   - identifier: "republican"
     name: "Alex"
-    model: "gemini-2.0-flash-lite"
+    model: "gemini-2.0-flash"
     party: "Republican"
     leaning: "right-leaning"
 
   - identifier: "democrat"
     name: "Taylor"
-    model: "gemini-2.0-flash-lite"
+    model: "gemini-2.0-flash"
     party: "Democrat"
     leaning: "left-leaning"

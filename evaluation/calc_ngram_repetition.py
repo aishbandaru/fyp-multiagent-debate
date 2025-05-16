@@ -20,7 +20,7 @@ METHOD_NAMES = {
 }
 TOPIC_NAMES = ["Immigration", "Gun Violence", "Abortion", "Economy"]  # standardised topic names
 N_GRAMS = [3, 5, 10, 15, 20]
-COLORS = ['#1f77b4', '#ff7f0e', '#40b37b']  # colors for each taxonomy integration type ['#1f77b4', '#ff7f0e', '#40b37b']
+COLORS = ['#1f77b4', '#ff7f0e', '#40b37b']  # colours for each taxonomy integration type ['#1f77b4', '#ff7f0e', '#40b37b']
 
 
 def clean_text(text):
