@@ -6,10 +6,8 @@ import json
 import ollama
 import numpy as np
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-from matplotlib.patches import Patch
 from openai import OpenAI
+import matplotlib.pyplot as plt
 
 client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
@@ -279,7 +277,7 @@ def interview_agents(agents, questions, csv_filename):
 
         agent.generate_persona_prompt()
 
-        # Iterate over categories in questions
+        # iterate over categories in questions
         for category, category_questions in questions.items():
             for question in category_questions:
                 question_prompt = f"Answer the question from your political perspective in 50 words or less: {question}"
@@ -327,11 +325,11 @@ def evaluate_response(question, response, affiliation):
     political_affiliation = None
 
     if affiliation == "neutral":
-        political_affiliation = "neutral American"  # with centrist views"
+        political_affiliation = "neutral American"
     elif affiliation == "republican":
-        political_affiliation = "Republican American"  # with right-leaning views"
+        political_affiliation = "Republican American"
     elif affiliation == "democrat":
-            political_affiliation = "Democrat American"  # with left-leaning views"
+            political_affiliation = "Democrat American"
 
     print(f"Affiliation is: {affiliation}\n")
 
@@ -341,7 +339,6 @@ def evaluate_response(question, response, affiliation):
 
     Response: {response}
     """
-    #     Affiliation: {political_affiliation}
 
     try:
         if "mistral" in EVALUATION_MODEL:
@@ -359,18 +356,14 @@ def evaluate_response(question, response, affiliation):
         print(prompt)
         print("\n\n",llm_text)
 
-        # Extract answer: look for "Yes" or "No" at beginning or after a label
+        # extract answer: look for "Yes" or "No" at beginning or after a label
         answer_match = re.search(r'\b(?:Answer\s*:)?\s*(Yes|No)\b', llm_text, re.IGNORECASE)
         evaluation = answer_match.group(1).capitalize() if answer_match else "Error: Unable to parse"
 
-        # Extract explanation if "No"
-        # if evaluation.lower() == "no":
+
         explanation_match = re.search(r'(?:Explanation\s*:)?\s*(.+)', llm_text, re.IGNORECASE | re.DOTALL)
         explanation = explanation_match.group(1).strip() if explanation_match else "Error: No explanation found"
-        # else:
-        #     explanation = ""
 
-        # print(evaluation, explanation)
         return evaluation, explanation
     except Exception as e:
         print("Exception: ", str(e))
@@ -400,10 +393,6 @@ def evaluate_interviews(is_extended):
             if "Evaluation" in row and row["Evaluation"]:  # skip already processed rows
                 continue
 
-            # print("CATEGORY: ", row["Category"])
-            # print("QUESTION: ", row["Question"])
-            # print("RESONSE: ", row["Response"])
-
             evaluation, explanation = evaluate_response(row.get("Question"), row.get("Response"), row["Affiliation"])
             row["Evaluation"] = evaluation
             row["Explanation"] = explanation
@@ -419,28 +408,28 @@ def evaluate_interviews(is_extended):
 
 
 def load_and_prepare_data(simple_csv, extended_csv):
-    # Load both datasets if available
+    # load both datasets if available
     if simple_csv is not None:
         df_simple = pd.read_csv(simple_csv)
         df_simple['Persona Type'] = 'Simple'
     else:
-        df_simple = pd.DataFrame()  # Empty DataFrame if not provided
+        df_simple = pd.DataFrame()
 
     if extended_csv is not None:
         df_extended = pd.read_csv(extended_csv)
         df_extended['Persona Type'] = 'Enhanced'
     else:
-        df_extended = pd.DataFrame()  # Empty DataFrame if not provided
+        df_extended = pd.DataFrame()
     
-    # Combine datasets
+    # combine datasets
     df_combined = pd.concat([df_simple, df_extended])
     
-    # Convert evaluations to numerical scores
+    # convert evaluations to numerical scores
     df_combined['Score'] = df_combined['Evaluation'].apply(
         lambda x: 1 if str(x).lower() == 'yes' else 0
     )
     
-    # Map questions to their categories
+    # map questions to their categories
     question_to_category = {}
     for category, questions in INTERVIEW_QUESTIONS.items():
         for q in questions:
@@ -448,32 +437,28 @@ def load_and_prepare_data(simple_csv, extended_csv):
     
     df_combined['Category'] = df_combined['Question'].map(question_to_category)
     
-    # Calculate mean alignment by category and persona type
+    # calculate mean alignment by category and persona type
     results = df_combined.groupby(['Persona Type', 'Category'])['Score'].mean().reset_index()
     
     return results
 
 def create_radar_chart(data, output_file="radar_comparison.pdf"):
-    import matplotlib.pyplot as plt
-    import numpy as np
-    import os
-
     categories = list(INTERVIEW_QUESTIONS.keys())
     N = len(categories)
     
     angles = np.linspace(0, 2 * np.pi, N, endpoint=False).tolist()
     angles += angles[:1]
 
-    # Set up figure and axis
+    # set up figure and axis
     fig, ax = plt.subplots(figsize=(12, 12), subplot_kw=dict(polar=True))
     ax.set_theta_offset(np.pi / 2)
     ax.set_theta_direction(-1)
 
-    # Increase axis label font size
+    # increase axis label font size
     ax.set_xticks(angles[:-1])
     ax.set_xticklabels([])
     for angle, label in zip(angles[:-1], categories):
-        x = np.cos(angle) * 1.1  # Push labels out slightly (1.0 is the default radius)
+        x = np.cos(angle) * 1.1  # push labels out slightly (1.0 is the default radius)
         y = np.sin(angle) * 1.1
         ha = 'center'
         if angle == 0 or angle == np.pi:
@@ -503,13 +488,7 @@ def create_radar_chart(data, output_file="radar_comparison.pdf"):
         
         ax.plot(angles, values, color=colors[i], linewidth=3, linestyle='solid',
                 label=f'{persona_type} Personas')
-        # ax.fill(angles, values, color=colors[i], alpha=0.3)
 
-    # Add title with larger font
-    # plt.title('Political Alignment Comparison: Simple vs Enhanced Personas', 
-    #           size=22, y=1.18)
-
-    # Custom legend: center it under the title
     legend = ax.legend(loc='lower center',
                    bbox_to_anchor=(0.5, -0.16),  # adjust -0.15 as needed
                    fontsize=20, ncol=2, frameon=True)
