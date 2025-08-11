@@ -69,26 +69,28 @@ python3 test_ollama.py
 
 ## Running the Taxonomy Generation
 1. Configure Settings
+
     Modify the following parameters in debate/debate_config.yaml as needed:
     - Number of taxonomy rounds
     - Number of taxonomy iterations
     - Taxonomy tree depth
     - The LLM agents involved
 
-2. Start Taxonomy Generation
+3. Start Taxonomy Generation
     ```bash
     python3 debate/taxonomy_runner.py
     ```
 
 ## Running the Debate
 1. Update Configuration
+
     Edit debate/debate_config.yaml to specify:
     - Number of debate rounds and iterations
     - Debate topics
     - Debate structures
     - Participating LLM agents
 
-2. Run the Debate
+3. Run the Debate
     ```bash
     python3 debate/debate_runner.py
     ```
@@ -98,19 +100,21 @@ python3 test_ollama.py
 ### Taxonomy Evaluation
 
 1. Update Evaluation Configuration
+
     In evaluation/eval_config.yaml, select the appropriate debate topics and structure settings.
 
-2. Run the Taxonomy Evaluation
+3. Run the Taxonomy Evaluation
     ```bash
     python3 debate/taxonomy_evaluator.py
     ```
 
 ### Debate Evaluation
 1. Update Evaluation Configuration
+
     Similarly, update evaluation/eval_config.yaml with the required evaluation parameters. If the Taxonomy
     Traversal debate structure is selected, the debate rounds should be set to 22. Otherwise it should be set to 20.
 
-2. Run the Debate Evaluation
+3. Run the Debate Evaluation
     ```bash
     python3 evaluation/evaluation_runner.py
     ```
